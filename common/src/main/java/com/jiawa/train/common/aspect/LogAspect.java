@@ -35,6 +35,10 @@ public class LogAspect {
     public void controllerPointcut() {
     }
 
+    /**
+     * 修改执行时机的aop
+     * @param joinPoint
+     */
     @Before("controllerPointcut()")
     public void doBefore(JoinPoint joinPoint) {
 

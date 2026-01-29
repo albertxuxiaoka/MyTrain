@@ -24,7 +24,7 @@ public class ServerGenerator {
     // }
 
     public static void main(String[] args) throws Exception {
-        // 获取mybatis-generator
+        // 获取mybatis-generator的模块
         String generatorPath = getGeneratorPath();
         // 比如generator-config-member.xml，得到module = member
         module = generatorPath.replace("src/main/resources/generator-config-", "").replace(".xml", "");
@@ -33,7 +33,7 @@ public class ServerGenerator {
         new File(serverPath).mkdirs();
         System.out.println("servicePath: " + serverPath);
 
-        // 读取table节点
+        // 读取table节点，获取表明
         Document document = new SAXReader().read("generator/" + generatorPath);
         Node table = document.selectSingleNode("//table");
         System.out.println(table);
@@ -52,6 +52,7 @@ public class ServerGenerator {
         DbUtil.user = userId.getText();
         DbUtil.password = password.getText();
 
+//        获取表和实体的相关信息
         // 示例：表名 jiawa_test
         // Domain = JiawaTest
         String Domain = domainObjectName.getText();
@@ -76,6 +77,7 @@ public class ServerGenerator {
         param.put("readOnly", readOnly);
         System.out.println("组装参数：" + param);
 
+//        生成参数
         gen(Domain, param, "service", "service");
         gen(Domain, param, "controller/admin", "adminController");
         gen(Domain, param, "req", "saveReq");
