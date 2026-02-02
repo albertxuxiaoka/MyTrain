@@ -13,7 +13,7 @@ public class CronJobResp {
 
     private String description;
 
-    private String state;
+    private String state;//任务状态
 
     private String cronExpression;
 

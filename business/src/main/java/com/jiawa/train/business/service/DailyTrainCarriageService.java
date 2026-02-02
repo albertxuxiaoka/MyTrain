@@ -105,7 +105,7 @@ public class DailyTrainCarriageService {
             LOG.info("该车次没有车厢基础数据，生成该车次的车厢信息结束");
             return;
         }
-
+//      循环遍历所有的车厢，然后生成每日车次的车厢
         for (TrainCarriage trainCarriage : carriageList) {
             DateTime now = DateTime.now();
             DailyTrainCarriage dailyTrainCarriage = BeanUtil.copyProperties(trainCarriage, DailyTrainCarriage.class);

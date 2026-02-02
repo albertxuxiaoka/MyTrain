@@ -94,6 +94,7 @@ public class DailyTrainSeatService {
                 .andTrainCodeEqualTo(trainCode);
         dailyTrainSeatMapper.deleteByExample(dailyTrainSeatExample);
 
+//        生成其对应的座位的已售卖区间
         List<TrainStation> stationList = trainStationService.selectByTrainCode(trainCode);
         String sell = StrUtil.fillBefore("", '0', stationList.size() - 1);
 
@@ -103,7 +104,7 @@ public class DailyTrainSeatService {
             LOG.info("该车次没有座位基础数据，生成该车次的座位信息结束");
             return;
         }
-
+//      循环遍历车次对应的所有的座位，然后生成每日车次座位信息
         for (TrainSeat trainSeat : seatList) {
             DateTime now = DateTime.now();
             DailyTrainSeat dailyTrainSeat = BeanUtil.copyProperties(trainSeat, DailyTrainSeat.class);

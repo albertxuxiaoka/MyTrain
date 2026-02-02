@@ -1,13 +1,13 @@
 package com.jiawa.train.batch.req;
 
 public class CronJobReq {
-    private String group;
+    private String group;//组名
 
-    private String name;
+    private String name;//任务名
 
-    private String description;
+    private String description;//描述
 
-    private String cronExpression;
+    private String cronExpression;//cron表达式
 
     @Override
     public String toString() {

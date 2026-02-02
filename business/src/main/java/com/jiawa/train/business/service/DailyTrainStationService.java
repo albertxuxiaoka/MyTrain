@@ -100,7 +100,7 @@ public class DailyTrainStationService {
             LOG.info("该车次没有车站基础数据，生成该车次的车站信息结束");
             return;
         }
-
+//      循环遍历所有的每日车站，然后生成每日车次车站
         for (TrainStation trainStation : stationList) {
             DateTime now = DateTime.now();
             DailyTrainStation dailyTrainStation = BeanUtil.copyProperties(trainStation, DailyTrainStation.class);
