@@ -193,6 +193,54 @@ public class DailyTrainTicketService {
 
     }
 
+    private void initSeatSellBitmaps(Date date, String trainCode, int stationCount) {
+        int segmentCount = stationCount - 1;
+        if (segmentCount <= 0) {
+            return;
+        }
+
+        List<DailyTrainCarriage> carriageList = dailyTrainCarriageService.selectByTrainCode(date, trainCode);
+        if (CollUtil.isEmpty(carriageList)) {
+            LOG.info("该车次没有车厢数据，跳过座位bitmap初始化：date={}, trainCode={}", DateUtil.formatDate(date), trainCode);
+            return;
+        }
+
+        String dateStr = DateUtil.formatDate(date);
+        redisTemplate.opsForValue().set(REDIS_KEY_TRAIN_CARRIAGE_COUNT + "-" + dateStr + "-" + trainCode, String.valueOf(carriageList.size()));
+        RedisConnection connection = redisTemplate.getConnectionFactory().getConnection();
+
+        for (DailyTrainCarriage carriage : carriageList) {
+            Integer carriageIndex = carriage.getIndex();
+            Integer seatCount = carriage.getSeatCount();
+            if (carriageIndex == null || seatCount == null || seatCount <= 0) {
+                continue;
+            }
+
+            byte[] fullSellBytes = buildFullSellBytes(seatCount);
+            for (int segmentIndex = 0; segmentIndex < segmentCount; segmentIndex++) {
+                String key = REDIS_KEY_SEAT_SELL_PRE + "-" + dateStr + "-" + trainCode  + "-" + carriageIndex + "-" + segmentIndex;
+                connection.set(
+                        key.getBytes(StandardCharsets.UTF_8),
+                        fullSellBytes
+                );
+            }
+        }
+        connection.close();
+    }
+
+    private byte[] buildFullSellBytes(int seatCount) {
+        int byteLen = (seatCount + 7) / 8;
+        byte[] bytes = new byte[byteLen];
+        Arrays.fill(bytes, (byte) 0xFF);
+
+        int remain = seatCount % 8;
+        if (remain != 0) {
+            int mask = (1 << remain) - 1;
+            bytes[byteLen - 1] = (byte) (bytes[byteLen - 1] & mask);
+        }
+        return bytes;
+    }
+
     public DailyTrainTicket selectByUnique(Date date, String trainCode, String start, String end) {
         DailyTrainTicketExample dailyTrainTicketExample = new DailyTrainTicketExample();
         dailyTrainTicketExample.createCriteria()

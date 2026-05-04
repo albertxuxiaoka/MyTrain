@@ -24,6 +24,7 @@ import com.jiawa.train.business.req.ConfirmOrderDoReq;
 import com.jiawa.train.business.req.ConfirmOrderQueryReq;
 import com.jiawa.train.business.req.ConfirmOrderTicketReq;
 import com.jiawa.train.business.resp.ConfirmOrderQueryResp;
+import com.jiawa.train.common.context.LoginMemberContext;
 import com.jiawa.train.common.exception.BusinessException;
 import com.jiawa.train.common.exception.BusinessExceptionEnum;
 import com.jiawa.train.common.resp.PageResp;
@@ -117,7 +118,7 @@ public class ConfirmOrderService {
         MDC.put("LOG_ID", dto.getLogId());
         LOG.info("异步出票开始：{}", dto);
         // // 校验令牌余量
-        // boolean validSkToken = skTokenService.validSkToken(dto.getDate(), dto.getTrainCode(), LoginMemberContext.getId());
+//         boolean validSkToken = skTokenService.validSkToken(dto.getDate(), dto.getTrainCode(), LoginMemberContext.getId());
         // if (validSkToken) {
         //     LOG.info("令牌校验通过");
         // } else {
