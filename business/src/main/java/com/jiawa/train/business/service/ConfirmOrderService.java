@@ -234,13 +234,7 @@ public class ConfirmOrderService {
             return null;
         }
 
-        List<Integer> shuffled = new ArrayList<>(carriageIndexList);
-        java.util.Collections.shuffle(shuffled);
-        int sampleSize = Math.min(3, shuffled.size());
-        List<Integer> tryCarriages = new ArrayList<>(shuffled.subList(0, sampleSize));
-        if (shuffled.size() > sampleSize) {
-            tryCarriages.addAll(shuffled.subList(sampleSize, shuffled.size()));
-        }
+        // 不再按车厢逐个采样；seatBitPos 通过映射换算车厢号
 
         DefaultRedisScript<Long> script = new DefaultRedisScript<>();
         script.setResultType(Long.class);
@@ -278,40 +272,76 @@ public class ConfirmOrderService {
                 return pos
                 """);
 
-        for (Integer carriageIndex : tryCarriages) {
+        List<String> keys = new ArrayList<>();
+        for (int segmentIndex = startIndex; segmentIndex < endIndex; segmentIndex++) {
+            keys.add("DAILY_TRAIN_TICKET_SELL" + "-" + dateStr + "-" + trainCode + "-" + seatType + "-" + segmentIndex);
+        }
+        if (CollUtil.isEmpty(keys)) {
+            return null;
+        }
+
+        String tmpKey = "TMP_AND-" + UUID.randomUUID();
+        String maskKey = "TMP_MASK-" + UUID.randomUUID();
+        Long seatBitPos = redisTemplate.execute(script, keys, tmpKey, maskKey);
+        if (seatBitPos == null || seatBitPos < 0) {
+            return null;
+        }
+
+        ChosenSeat chosenSeat = mapSeatBitPosToCarriage(dateStr, trainCode, seatType, seatBitPos.intValue());
+        if (chosenSeat == null) {
+            return null;
+        }
+        List<DailyTrainSeat> seatList = dailyTrainSeatService.selectByCarriage(date, trainCode, chosenSeat.carriageIndex());
+        if (CollUtil.isEmpty(seatList) || chosenSeat.carriageSeatIndex() > seatList.size()) {
+            return null;
+        }
+        DailyTrainSeat seat = seatList.get(chosenSeat.carriageSeatIndex() - 1);
+
+        char[] sellChars = seat.getSell().toCharArray();
+        for (int i = startIndex; i < endIndex; i++) {
+            if (i >= 0 && i < sellChars.length) {
+                sellChars[i] = '1';
+            }
+        }
+        seat.setSell(new String(sellChars));
+        return seat;
+    }
+
+    private record ChosenSeat(Integer carriageIndex, Integer carriageSeatIndex) {}
+
+    private ChosenSeat mapSeatBitPosToCarriage(String dateStr, String trainCode, String seatType, int seatBitPos) {
+        if (seatBitPos < 0) {
+            return null;
+        }
+        String carriageKey = "DAILY_TRAIN_CARRIAGE_COUNT" + "-" + dateStr + "-" + trainCode;
+        String carriageJson = redisTemplate.opsForValue().get(carriageKey);
+        if (StrUtil.isBlank(carriageJson)) {
+            return null;
+        }
+        Map<String, List<Integer>> seatTypeToCarriages = JSON.parseObject(
+                carriageJson,
+                new TypeReference<Map<String, List<Integer>>>() {}
+        );
+        List<Integer> carriageIndexList = (seatTypeToCarriages == null) ? null : seatTypeToCarriages.get(seatType);
+        if (CollUtil.isEmpty(carriageIndexList)) {
+            return null;
+        }
+
+        String carriageSeatCountKey = "DAILY_TRAIN_CARRIAGE_SEAT_COUNT" + "-" + dateStr + "-" + trainCode;
+        int offset = seatBitPos;
+        for (Integer carriageIndex : carriageIndexList) {
             if (carriageIndex == null) {
                 continue;
             }
-            List<String> keys = new ArrayList<>();
-            for (int segmentIndex = startIndex; segmentIndex < endIndex; segmentIndex++) {
-                keys.add("DAILY_TRAIN_TICKET_SELL" + "-" + dateStr + "-" + trainCode + "-" + carriageIndex + "-" + segmentIndex);
-            }
-            if (CollUtil.isEmpty(keys)) {
+            Object seatCountObj = redisTemplate.opsForHash().get(carriageSeatCountKey, String.valueOf(carriageIndex));
+            Integer seatCount = seatCountObj == null ? null : Integer.valueOf(seatCountObj.toString());
+            if (seatCount == null || seatCount <= 0) {
                 continue;
             }
-
-            String tmpKey = "TMP_AND-" + UUID.randomUUID();
-            String maskKey = "TMP_MASK-" + UUID.randomUUID();
-            Long seatBitPos = redisTemplate.execute(script, keys, tmpKey, maskKey);
-            if (seatBitPos == null || seatBitPos < 0) {
-                continue;
+            if (offset < seatCount) {
+                return new ChosenSeat(carriageIndex, offset + 1);
             }
-
-            int carriageSeatIndex = seatBitPos.intValue() + 1; // 1-based
-            List<DailyTrainSeat> seatList = dailyTrainSeatService.selectByCarriage(date, trainCode, carriageIndex);
-            if (CollUtil.isEmpty(seatList) || carriageSeatIndex > seatList.size()) {
-                return null;
-            }
-            DailyTrainSeat seat = seatList.get(carriageSeatIndex - 1);
-
-            char[] sellChars = seat.getSell().toCharArray();
-            for (int i = startIndex; i < endIndex; i++) {
-                if (i >= 0 && i < sellChars.length) {
-                    sellChars[i] = '1';
-                }
-            }
-            seat.setSell(new String(sellChars));
-            return seat;
+            offset -= seatCount;
         }
         return null;
     }

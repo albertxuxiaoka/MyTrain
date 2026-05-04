@@ -1,6 +1,7 @@
 package com.jiawa.train.business.service;
 
 import cn.hutool.core.date.DateTime;
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import com.alibaba.csp.sentinel.annotation.SentinelResource;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
@@ -26,12 +27,12 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.UUID;
-import java.util.Arrays;
 
 @Service
 public class BeforeConfirmOrderService {
@@ -59,6 +60,8 @@ public class BeforeConfirmOrderService {
     private static final String REDIS_KEY_SEAT_SELL_PRE = "DAILY_TRAIN_TICKET_SELL";
 
     private static final String REDIS_KEY_TRAIN_CARRIAGE_COUNT = "DAILY_TRAIN_CARRIAGE_COUNT";
+
+    private static final String REDIS_KEY_CARRIAGE_SEAT_COUNT_PRE = "DAILY_TRAIN_CARRIAGE_SEAT_COUNT";
 
     private static final String REDIS_KEY_STATION_INDEX_PRE = "DAILY_TRAIN_STATION_INDEX";
 
@@ -174,13 +177,7 @@ public class BeforeConfirmOrderService {
             return null;
         }
 
-        List<Integer> shuffled = new ArrayList<>(carriageIndexList);
-        java.util.Collections.shuffle(shuffled);
-        int sampleSize = Math.min(3, shuffled.size());
-        List<Integer> tryCarriages = new ArrayList<>(shuffled.subList(0, sampleSize));
-        if (shuffled.size() > sampleSize) {
-            tryCarriages.addAll(shuffled.subList(sampleSize, shuffled.size()));
-        }
+        // 不再按车厢逐个采样；保留校验逻辑即可
 
         DefaultRedisScript<Long> script = new DefaultRedisScript<>();
         script.setResultType(Long.class);
@@ -218,28 +215,58 @@ public class BeforeConfirmOrderService {
                 return pos
                 """);
 
-        for (Integer carriageIndex : tryCarriages) {
+        // 已改为：车次-座位类型级 bitmap，不再按车厢循环选座；seatBitPos 通过映射换算车厢号
+        List<String> keys = new ArrayList<>();
+        for (int segmentIndex = startIndex; segmentIndex < endIndex; segmentIndex++) {
+            keys.add(REDIS_KEY_SEAT_SELL_PRE + "-" + dateStr + "-" + trainCode + "-" + seatType + "-" + segmentIndex);
+        }
+        if (keys.isEmpty()) {
+            return null;
+        }
+
+        String tmpKey = "TMP_AND-" + UUID.randomUUID();
+        String maskKey = "TMP_MASK-" + UUID.randomUUID();
+        Long seatBitPos = redisTemplate.execute(script, keys, tmpKey, maskKey);
+        if (seatBitPos == null || seatBitPos < 0) {
+            return null;
+        }
+        return mapSeatBitPosToCarriage(dateStr, trainCode, seatType, seatBitPos.intValue());
+    }
+
+    private ChosenSeat mapSeatBitPosToCarriage(String dateStr, String trainCode, String seatType, int seatBitPos) {
+        if (seatBitPos < 0) {
+            return null;
+        }
+
+        String carriageKey = REDIS_KEY_TRAIN_CARRIAGE_COUNT + "-" + dateStr + "-" + trainCode;
+        String carriageJson = redisTemplate.opsForValue().get(carriageKey);
+        if (StrUtil.isBlank(carriageJson)) {
+            return null;
+        }
+        Map<String, List<Integer>> seatTypeToCarriages = JSON.parseObject(
+                carriageJson,
+                new TypeReference<Map<String, List<Integer>>>() {}
+        );
+        List<Integer> carriageIndexList = (seatTypeToCarriages == null) ? null : seatTypeToCarriages.get(seatType);
+        if (CollUtil.isEmpty(carriageIndexList)) {
+            return null;
+        }
+
+        String carriageSeatCountKey = REDIS_KEY_CARRIAGE_SEAT_COUNT_PRE + "-" + dateStr + "-" + trainCode;
+        int offset = seatBitPos;
+        for (Integer carriageIndex : carriageIndexList) {
             if (carriageIndex == null) {
                 continue;
             }
-
-            List<String> keys = new ArrayList<>();
-            for (int segmentIndex = startIndex; segmentIndex < endIndex; segmentIndex++) {
-                keys.add(REDIS_KEY_SEAT_SELL_PRE + "-" + dateStr + "-" + trainCode + "-" + carriageIndex + "-" + segmentIndex);
-            }
-            if (keys.isEmpty()) {
+            Object seatCountObj = redisTemplate.opsForHash().get(carriageSeatCountKey, String.valueOf(carriageIndex));
+            Integer seatCount = seatCountObj == null ? null : Integer.valueOf(seatCountObj.toString());
+            if (seatCount == null || seatCount <= 0) {
                 continue;
             }
-
-            String tmpKey = "TMP_AND-" + UUID.randomUUID();
-            String maskKey = "TMP_MASK-" + UUID.randomUUID();
-            Long seatBitPos = redisTemplate.execute(script, keys, tmpKey, maskKey);
-            if (seatBitPos == null || seatBitPos < 0) {
-                continue;
+            if (offset < seatCount) {
+                return new ChosenSeat(carriageIndex, offset + 1);
             }
-
-            int carriageSeatIndex = seatBitPos.intValue() + 1; // 1-based
-            return new ChosenSeat(carriageIndex, carriageSeatIndex);
+            offset -= seatCount;
         }
         return null;
     }
