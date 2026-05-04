@@ -1,0 +1,138 @@
+22:16.422 [34mINFO [0;39m [34mc.a.n.c.e.SearchableProperties:197 [0;39m main [32m                  [0;39m properties search order:PROPERTIES->JVM->ENV->DEFAULT_SETTING
+22:16.429 [31mWARN [0;39m [34mc.a.n.c.logging.NacosLogging  :64  [0;39m main [32m                  [0;39m Load Logback Configuration of Nacos fail, message: org/slf4j/impl/StaticLoggerBinder
+22:16.431 [31mWARN [0;39m [34mc.a.n.c.logging.NacosLogging  :64  [0;39m main [32m                  [0;39m Load Logback Configuration of Nacos fail, message: org/slf4j/impl/StaticLoggerBinder
+22:16.483 [34mINFO [0;39m [34mo.h.v.internal.util.Version   :21  [0;39m background-preinit [32m                  [0;39m HV000001: Hibernate Validator 8.0.0.Final
+22:17.283 [31mWARN [0;39m [34mc.a.n.c.logging.NacosLogging  :64  [0;39m main [32m                  [0;39m Load Logback Configuration of Nacos fail, message: org/slf4j/impl/StaticLoggerBinder
+22:17.284 [34mINFO [0;39m [34mc.a.n.c.e.SearchableProperties:197 [0;39m main [32m                  [0;39m properties search order:PROPERTIES->JVM->ENV->DEFAULT_SETTING
+22:17.290 [34mINFO [0;39m [34mc.a.n.client.utils.ParamUtil  :87  [0;39m main [32m                  [0;39m [settings] [req-serv] nacos-server port:8848
+22:17.290 [34mINFO [0;39m [34mc.a.n.client.utils.ParamUtil  :98  [0;39m main [32m                  [0;39m [settings] [http-client] connect timeout:1000
+22:17.293 [34mINFO [0;39m [34mc.a.n.client.utils.ParamUtil  :105 [0;39m main [32m                  [0;39m PER_TASK_CONFIG_SIZE: 3000.0
+22:17.486 [34mINFO [0;39m [34mc.a.n.p.a.s.c.ClientAuthPluginManager:56  [0;39m main [32m                  [0;39m [ClientAuthPluginManager] Load ClientAuthService com.alibaba.nacos.client.auth.impl.NacosClientAuthServiceImpl success.
+22:17.487 [34mINFO [0;39m [34mc.a.n.p.a.s.c.ClientAuthPluginManager:56  [0;39m main [32m                  [0;39m [ClientAuthPluginManager] Load ClientAuthService com.alibaba.nacos.client.auth.ram.RamClientAuthServiceImpl success.
+22:17.493 [34mINFO [0;39m [34mc.a.n.c.a.r.i.CredentialWatcher:165 [0;39m main [32m                  [0;39m null No credential found
+22:18.879 [31mWARN [0;39m [34mc.a.n.c.logging.NacosLogging  :64  [0;39m main [32m                  [0;39m Load Logback Configuration of Nacos fail, message: org/slf4j/impl/StaticLoggerBinder
+22:18.879 [31mWARN [0;39m [34mc.a.n.c.logging.NacosLogging  :64  [0;39m main [32m                  [0;39m Load Logback Configuration of Nacos fail, message: org/slf4j/impl/StaticLoggerBinder
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::                (v3.0.0)
+
+22:18.912 [34mINFO [0;39m [34mc.a.n.c.c.i.LocalConfigInfoProcessor:68  [0;39m main [32m                  [0;39m LOCAL_SNAPSHOT_PATH:C:\Users\holyd\nacos\config
+22:18.918 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:94  [0;39m main [32m                  [0;39m [RpcClientFactory] create a new rpc client of 35a76c08-6e9e-4d02-877f-4209e69fee88_config-0
+22:18.948 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:60  [0;39m main [32m                  [0;39m [35a76c08-6e9e-4d02-877f-4209e69fee88_config-0] Register server push request handler:com.alibaba.nacos.client.config.impl.ClientWorker$ConfigRpcTransportClient$$Lambda$519/0x0000000800efcfd8
+22:18.949 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:60  [0;39m main [32m                  [0;39m [35a76c08-6e9e-4d02-877f-4209e69fee88_config-0] Register server push request handler:com.alibaba.nacos.client.config.impl.ClientWorker$ConfigRpcTransportClient$$Lambda$520/0x0000000800efd3f8
+22:18.950 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:60  [0;39m main [32m                  [0;39m [35a76c08-6e9e-4d02-877f-4209e69fee88_config-0] Registry connection listener to current client:com.alibaba.nacos.client.config.impl.ClientWorker$ConfigRpcTransportClient$1
+22:18.950 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:60  [0;39m main [32m                  [0;39m [35a76c08-6e9e-4d02-877f-4209e69fee88_config-0] RpcClient init, ServerListFactory = com.alibaba.nacos.client.config.impl.ClientWorker$ConfigRpcTransportClient$2
+22:18.964 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:60  [0;39m main [32m                  [0;39m [35a76c08-6e9e-4d02-877f-4209e69fee88_config-0] Try to connect to server on start up, server: {serverIp = '127.0.0.1', server main port = 8848}
+22:20.310 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:60  [0;39m main [32m                  [0;39m [35a76c08-6e9e-4d02-877f-4209e69fee88_config-0] Success to connect to server [127.0.0.1:8848] on start up, connectionId = 1777897340090_127.0.0.1_6512
+22:20.312 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:60  [0;39m com.alibaba.nacos.client.remote.worker [32m                  [0;39m [35a76c08-6e9e-4d02-877f-4209e69fee88_config-0] Notify connected event to listeners.
+22:20.312 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:60  [0;39m main [32m                  [0;39m [35a76c08-6e9e-4d02-877f-4209e69fee88_config-0] Register server push request handler:com.alibaba.nacos.common.remote.client.RpcClient$ConnectResetRequestHandler
+22:20.312 [34mINFO [0;39m [34mc.a.n.c.c.impl.ClientWorker   :638 [0;39m com.alibaba.nacos.client.remote.worker [32m                  [0;39m [35a76c08-6e9e-4d02-877f-4209e69fee88_config-0] Connected,notify listen context...
+22:20.313 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:60  [0;39m main [32m                  [0;39m [35a76c08-6e9e-4d02-877f-4209e69fee88_config-0] Register server push request handler:com.alibaba.nacos.common.remote.client.RpcClient$$Lambda$542/0x000000080106ebe0
+22:20.391 [34mINFO [0;39m [34mc.a.n.c.config.impl.Limiter   :62  [0;39m main [32m                  [0;39m limitTime:5.0
+22:20.417 [31mWARN [0;39m [34mc.a.c.n.c.NacosPropertySourceBuilder:87  [0;39m main [32m                  [0;39m Ignore the empty nacos configuration and get it based on dataId[batch] & group[DEFAULT_GROUP]
+22:20.431 [31mWARN [0;39m [34mc.a.c.n.c.NacosPropertySourceBuilder:87  [0;39m main [32m                  [0;39m Ignore the empty nacos configuration and get it based on dataId[batch.properties] & group[DEFAULT_GROUP]
+22:20.442 [31mWARN [0;39m [34mc.a.c.n.c.NacosPropertySourceBuilder:87  [0;39m main [32m                  [0;39m Ignore the empty nacos configuration and get it based on dataId[batch-dev.properties] & group[DEFAULT_GROUP]
+22:20.445 [34mINFO [0;39m [34mo.s.c.b.c.PropertySourceBootstrapConfiguration:108 [0;39m main [32m                  [0;39m Located property source: [BootstrapPropertySource {name='bootstrapProperties-batch-dev.properties,DEFAULT_GROUP'}, BootstrapPropertySource {name='bootstrapProperties-batch.properties,DEFAULT_GROUP'}, BootstrapPropertySource {name='bootstrapProperties-batch,DEFAULT_GROUP'}]
+22:20.489 [34mINFO [0;39m [34mc.j.t.b.c.BatchApplication    :636 [0;39m main [32m                  [0;39m The following 1 profile is active: "dev"
+22:21.801 [34mINFO [0;39m [34mo.s.c.c.scope.GenericScope    :282 [0;39m main [32m                  [0;39m BeanFactory id=ca66d08f-8636-344b-b2b8-d00c2e34f8ef
+22:22.890 [34mINFO [0;39m [34mo.s.b.w.e.t.TomcatWebServer   :114 [0;39m main [32m                  [0;39m Tomcat initialized with port(s): 9093 (http)
+22:22.906 [34mINFO [0;39m [34mo.a.c.http11.Http11NioProtocol:173 [0;39m main [32m                  [0;39m Initializing ProtocolHandler ["http-nio-9093"]
+22:22.909 [34mINFO [0;39m [34mo.a.c.core.StandardService    :173 [0;39m main [32m                  [0;39m Starting service [Tomcat]
+22:22.910 [34mINFO [0;39m [34mo.a.c.core.StandardEngine     :173 [0;39m main [32m                  [0;39m Starting Servlet engine: [Apache Tomcat/10.1.1]
+22:23.007 [34mINFO [0;39m [34mo.a.c.c.C.[.[.[/batch]        :173 [0;39m main [32m                  [0;39m Initializing Spring embedded WebApplicationContext
+22:23.010 [34mINFO [0;39m [34mo.s.b.w.s.c.ServletWebServerApplicationContext:291 [0;39m main [32m                  [0;39m Root WebApplicationContext: initialization completed in 2469 ms
+22:23.304 [34mINFO [0;39m [34mo.q.impl.StdSchedulerFactory  :1220[0;39m main [32m                  [0;39m Using default implementation for ThreadExecutor
+22:23.322 [34mINFO [0;39m [34mo.q.core.SchedulerSignalerImpl:61  [0;39m main [32m                  [0;39m Initialized Scheduler Signaller of type: class org.quartz.core.SchedulerSignalerImpl
+22:23.323 [34mINFO [0;39m [34mo.quartz.core.QuartzScheduler :229 [0;39m main [32m                  [0;39m Quartz Scheduler v.2.3.2 created.
+22:23.337 [34mINFO [0;39m [34mc.z.hikari.HikariDataSource   :110 [0;39m main [32m                  [0;39m HikariPool-1 - Starting...
+22:23.794 [34mINFO [0;39m [34mc.z.hikari.pool.HikariPool    :565 [0;39m main [32m                  [0;39m HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@10fbbdb
+22:23.796 [34mINFO [0;39m [34mc.z.hikari.HikariDataSource   :123 [0;39m main [32m                  [0;39m HikariPool-1 - Start completed.
+22:23.816 [34mINFO [0;39m [34mo.s.s.q.LocalDataSourceJobStore:672 [0;39m main [32m                  [0;39m Using db table-based data access locking (synchronization).
+22:23.819 [34mINFO [0;39m [34mo.s.s.q.LocalDataSourceJobStore:145 [0;39m main [32m                  [0;39m JobStoreCMT initialized.
+22:23.820 [34mINFO [0;39m [34mo.quartz.core.QuartzScheduler :294 [0;39m main [32m                  [0;39m Scheduler meta-data: Quartz Scheduler (v2.3.2) 'schedulerFactoryBean' with instanceId 'NON_CLUSTERED'
+  Scheduler class: 'org.quartz.core.QuartzScheduler' - running locally.
+  NOT STARTED.
+  Currently in standby mode.
+  Number of jobs executed: 0
+  Using thread pool 'org.quartz.simpl.SimpleThreadPool' - with 10 threads.
+  Using job-store 'org.springframework.scheduling.quartz.LocalDataSourceJobStore' - which supports persistence. and is not clustered.
+
+22:23.820 [34mINFO [0;39m [34mo.q.impl.StdSchedulerFactory  :1374[0;39m main [32m                  [0;39m Quartz scheduler 'schedulerFactoryBean' initialized from an externally provided properties instance.
+22:23.821 [34mINFO [0;39m [34mo.q.impl.StdSchedulerFactory  :1378[0;39m main [32m                  [0;39m Quartz scheduler version: 2.3.2
+22:23.821 [34mINFO [0;39m [34mo.quartz.core.QuartzScheduler :2293[0;39m main [32m                  [0;39m JobFactory set to: com.jiawa.train.batch.config.MyJobFactory@3f9270ed
+22:24.303 [34mINFO [0;39m [34mo.s.c.o.FeignClientFactoryBean:437 [0;39m main [32m                  [0;39m For 'business' URL not provided. Will try picking an instance via load-balancing.
+Common LogAspect
+22:24.775 [34mINFO [0;39m [34mc.a.c.s.SentinelWebMvcConfigurer:52  [0;39m main [32m                  [0;39m [Sentinel Starter] register SentinelWebInterceptor with urlPatterns: [/**].
+22:26.247 [34mINFO [0;39m [34mo.s.c.commons.util.InetUtils  :170 [0;39m main [32m                  [0;39m Cannot determine local hostname
+22:26.680 [31mWARN [0;39m [34mo.s.c.LocalVariableTableParameterNameDiscoverer:123 [0;39m main [32m                  [0;39m Using deprecated '-debug' fallback for parameter name resolution. Compile the affected code with '-parameters' instead or avoid its introspection: com.github.pagehelper.autoconfigure.PageHelperStandardProperties
+22:28.226 [34mINFO [0;39m [34mo.s.c.commons.util.InetUtils  :170 [0;39m main [32m                  [0;39m Cannot determine local hostname
+22:28.267 [31mWARN [0;39m [34mo.s.c.l.c.LoadBalancerCacheAutoConfiguration$LoadBalancerCaffeineWarnLogger:81  [0;39m main [32m                  [0;39m Spring Cloud LoadBalancer is currently working with the default cache. While this cache implementation is useful for development and tests, it's recommended to use Caffeine cache in production.You can switch to using Caffeine cache, by adding it and org.springframework.cache.caffeine.CaffeineCacheManager to the classpath.
+22:28.322 [34mINFO [0;39m [34mc.a.n.c.e.SearchableProperties:197 [0;39m main [32m                  [0;39m properties search order:PROPERTIES->JVM->ENV->DEFAULT_SETTING
+22:28.324 [34mINFO [0;39m [34mc.a.n.p.a.s.c.ClientAuthPluginManager:56  [0;39m main [32m                  [0;39m [ClientAuthPluginManager] Load ClientAuthService com.alibaba.nacos.client.auth.impl.NacosClientAuthServiceImpl success.
+22:28.326 [34mINFO [0;39m [34mc.a.n.p.a.s.c.ClientAuthPluginManager:56  [0;39m main [32m                  [0;39m [ClientAuthPluginManager] Load ClientAuthService com.alibaba.nacos.client.auth.ram.RamClientAuthServiceImpl success.
+22:28.331 [34mINFO [0;39m [34mc.a.n.c.config.impl.CacheData :67  [0;39m main [32m                  [0;39m nacos.cache.data.init.snapshot = true 
+22:28.331 [34mINFO [0;39m [34mc.a.n.c.c.impl.ClientWorker   :379 [0;39m main [32m                  [0;39m [fixed-train-127.0.0.1_8848] [subscribe] sentinel-batch-degrade+DEFAULT_GROUP+train
+22:28.351 [34mINFO [0;39m [34mc.a.n.c.config.impl.CacheData :197 [0;39m main [32m                  [0;39m [fixed-train-127.0.0.1_8848] [add-listener] ok, tenant=train, dataId=sentinel-batch-degrade, group=DEFAULT_GROUP, cnt=1
+22:28.351 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:94  [0;39m main [32m                  [0;39m [RpcClientFactory] create a new rpc client of 292d830a-c8fc-4554-b8e1-ab25a5957e83_config-0
+22:28.352 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:60  [0;39m main [32m                  [0;39m [292d830a-c8fc-4554-b8e1-ab25a5957e83_config-0] Register server push request handler:com.alibaba.nacos.client.config.impl.ClientWorker$ConfigRpcTransportClient$$Lambda$519/0x0000000800efcfd8
+22:28.352 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:60  [0;39m main [32m                  [0;39m [292d830a-c8fc-4554-b8e1-ab25a5957e83_config-0] Register server push request handler:com.alibaba.nacos.client.config.impl.ClientWorker$ConfigRpcTransportClient$$Lambda$520/0x0000000800efd3f8
+22:28.352 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:60  [0;39m main [32m                  [0;39m [292d830a-c8fc-4554-b8e1-ab25a5957e83_config-0] Registry connection listener to current client:com.alibaba.nacos.client.config.impl.ClientWorker$ConfigRpcTransportClient$1
+22:28.353 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:60  [0;39m main [32m                  [0;39m [292d830a-c8fc-4554-b8e1-ab25a5957e83_config-0] RpcClient init, ServerListFactory = com.alibaba.nacos.client.config.impl.ClientWorker$ConfigRpcTransportClient$2
+22:28.354 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:60  [0;39m main [32m                  [0;39m [292d830a-c8fc-4554-b8e1-ab25a5957e83_config-0] Try to connect to server on start up, server: {serverIp = '127.0.0.1', server main port = 8848}
+22:28.468 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:60  [0;39m main [32m                  [0;39m [292d830a-c8fc-4554-b8e1-ab25a5957e83_config-0] Success to connect to server [127.0.0.1:8848] on start up, connectionId = 1777897348361_127.0.0.1_6565
+22:28.469 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:60  [0;39m com.alibaba.nacos.client.remote.worker [32m                  [0;39m [292d830a-c8fc-4554-b8e1-ab25a5957e83_config-0] Notify connected event to listeners.
+22:28.469 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:60  [0;39m main [32m                  [0;39m [292d830a-c8fc-4554-b8e1-ab25a5957e83_config-0] Register server push request handler:com.alibaba.nacos.common.remote.client.RpcClient$ConnectResetRequestHandler
+22:28.469 [34mINFO [0;39m [34mc.a.n.c.c.impl.ClientWorker   :638 [0;39m com.alibaba.nacos.client.remote.worker [32m                  [0;39m [292d830a-c8fc-4554-b8e1-ab25a5957e83_config-0] Connected,notify listen context...
+22:28.469 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:60  [0;39m main [32m                  [0;39m [292d830a-c8fc-4554-b8e1-ab25a5957e83_config-0] Register server push request handler:com.alibaba.nacos.common.remote.client.RpcClient$$Lambda$542/0x000000080106ebe0
+22:28.473 [34mINFO [0;39m [34mc.a.c.s.d.c.SentinelConverter :79  [0;39m main [32m                  [0;39m converter can not convert rules because source is empty
+INFO: Sentinel log output type is: file
+INFO: Sentinel log charset is: utf-8
+INFO: Sentinel log base directory is: C:\Users\holyd\logs\csp\
+INFO: Sentinel log name use pid is: false
+INFO: Sentinel log level is: INFO
+22:28.516 [34mINFO [0;39m [34mo.a.c.http11.Http11NioProtocol:173 [0;39m main [32m                  [0;39m Starting ProtocolHandler ["http-nio-9093"]
+22:28.537 [34mINFO [0;39m [34mo.s.b.w.e.t.TomcatWebServer   :226 [0;39m main [32m                  [0;39m Tomcat started on port(s): 9093 (http) with context path '/batch'
+22:28.545 [34mINFO [0;39m [34mc.a.n.c.e.SearchableProperties:197 [0;39m main [32m                  [0;39m properties search order:PROPERTIES->JVM->ENV->DEFAULT_SETTING
+22:28.546 [34mINFO [0;39m [34mc.alibaba.nacos.client.naming :61  [0;39m main [32m                  [0;39m initializer namespace from System Property : null
+22:28.546 [34mINFO [0;39m [34mc.alibaba.nacos.client.naming :65  [0;39m main [32m                  [0;39m initializer namespace from System Environment :null
+22:28.548 [34mINFO [0;39m [34mc.alibaba.nacos.client.naming :72  [0;39m main [32m                  [0;39m initializer namespace from System Property :train
+22:28.560 [34mINFO [0;39m [34mc.a.n.p.a.s.c.ClientAuthPluginManager:56  [0;39m main [32m                  [0;39m [ClientAuthPluginManager] Load ClientAuthService com.alibaba.nacos.client.auth.impl.NacosClientAuthServiceImpl success.
+22:28.560 [34mINFO [0;39m [34mc.a.n.p.a.s.c.ClientAuthPluginManager:56  [0;39m main [32m                  [0;39m [ClientAuthPluginManager] Load ClientAuthService com.alibaba.nacos.client.auth.ram.RamClientAuthServiceImpl success.
+22:28.567 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:94  [0;39m main [32m                  [0;39m [RpcClientFactory] create a new rpc client of 28ef904f-549f-4ff4-857f-f1cb909528b0
+22:28.571 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:60  [0;39m main [32m                  [0;39m [28ef904f-549f-4ff4-857f-f1cb909528b0] RpcClient init, ServerListFactory = com.alibaba.nacos.client.naming.core.ServerListManager
+22:28.572 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:60  [0;39m main [32m                  [0;39m [28ef904f-549f-4ff4-857f-f1cb909528b0] Registry connection listener to current client:com.alibaba.nacos.client.naming.remote.gprc.redo.NamingGrpcRedoService
+22:28.580 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:60  [0;39m main [32m                  [0;39m [28ef904f-549f-4ff4-857f-f1cb909528b0] Register server push request handler:com.alibaba.nacos.client.naming.remote.gprc.NamingPushRequestHandler
+22:28.581 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:60  [0;39m main [32m                  [0;39m [28ef904f-549f-4ff4-857f-f1cb909528b0] Try to connect to server on start up, server: {serverIp = '127.0.0.1', server main port = 8848}
+22:28.720 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:60  [0;39m main [32m                  [0;39m [28ef904f-549f-4ff4-857f-f1cb909528b0] Success to connect to server [127.0.0.1:8848] on start up, connectionId = 1777897348597_127.0.0.1_6566
+22:28.720 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:60  [0;39m main [32m                  [0;39m [28ef904f-549f-4ff4-857f-f1cb909528b0] Register server push request handler:com.alibaba.nacos.common.remote.client.RpcClient$ConnectResetRequestHandler
+22:28.720 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:60  [0;39m com.alibaba.nacos.client.remote.worker [32m                  [0;39m [28ef904f-549f-4ff4-857f-f1cb909528b0] Notify connected event to listeners.
+22:28.720 [34mINFO [0;39m [34mc.a.nacos.common.remote.client:60  [0;39m main [32m                  [0;39m [28ef904f-549f-4ff4-857f-f1cb909528b0] Register server push request handler:com.alibaba.nacos.common.remote.client.RpcClient$$Lambda$542/0x000000080106ebe0
+22:28.720 [34mINFO [0;39m [34mc.alibaba.nacos.client.naming :78  [0;39m com.alibaba.nacos.client.remote.worker [32m                  [0;39m Grpc connection connect
+22:28.722 [34mINFO [0;39m [34mc.alibaba.nacos.client.naming :120 [0;39m main [32m                  [0;39m [REGISTER-SERVICE] train registering service batch with instance Instance{instanceId='null', ip='192.168.28.1', port=9093, weight=1.0, healthy=true, enabled=true, ephemeral=true, clusterName='DEFAULT', serviceName='null', metadata={preserved.register.source=SPRING_CLOUD}}
+22:28.739 [34mINFO [0;39m [34mc.a.c.n.r.NacosServiceRegistry:76  [0;39m main [32m                  [0;39m nacos registry, DEFAULT_GROUP batch 192.168.28.1:9093 register finished
+22:29.936 [34mINFO [0;39m [34mo.s.c.commons.util.InetUtils  :170 [0;39m main [32m                  [0;39m Cannot determine local hostname
+22:29.936 [34mINFO [0;39m [34mo.s.s.q.SchedulerFactoryBean  :734 [0;39m main [32m                  [0;39m Will start Quartz Scheduler [schedulerFactoryBean] in 2 seconds
+22:29.950 [34mINFO [0;39m [34mc.j.t.b.c.BatchApplication    :57  [0;39m main [32m                  [0;39m Started BatchApplication in 15.813 seconds (process running for 16.761)
+22:29.953 [34mINFO [0;39m [34mc.a.n.c.c.impl.ClientWorker   :379 [0;39m main [32m                  [0;39m [fixed-train-127.0.0.1_8848] [subscribe] batch-dev.properties+DEFAULT_GROUP+train
+22:29.953 [34mINFO [0;39m [34mc.a.n.c.config.impl.CacheData :197 [0;39m main [32m                  [0;39m [fixed-train-127.0.0.1_8848] [add-listener] ok, tenant=train, dataId=batch-dev.properties, group=DEFAULT_GROUP, cnt=1
+22:29.953 [34mINFO [0;39m [34mc.a.c.n.r.NacosContextRefresher:129 [0;39m main [32m                  [0;39m [Nacos Config] Listening config: dataId=batch-dev.properties, group=DEFAULT_GROUP
+22:29.954 [34mINFO [0;39m [34mc.a.n.c.c.impl.ClientWorker   :379 [0;39m main [32m                  [0;39m [fixed-train-127.0.0.1_8848] [subscribe] batch+DEFAULT_GROUP+train
+22:29.954 [34mINFO [0;39m [34mc.a.n.c.config.impl.CacheData :197 [0;39m main [32m                  [0;39m [fixed-train-127.0.0.1_8848] [add-listener] ok, tenant=train, dataId=batch, group=DEFAULT_GROUP, cnt=1
+22:29.954 [34mINFO [0;39m [34mc.a.c.n.r.NacosContextRefresher:129 [0;39m main [32m                  [0;39m [Nacos Config] Listening config: dataId=batch, group=DEFAULT_GROUP
+22:29.955 [34mINFO [0;39m [34mc.a.n.c.c.impl.ClientWorker   :379 [0;39m main [32m                  [0;39m [fixed-train-127.0.0.1_8848] [subscribe] batch.properties+DEFAULT_GROUP+train
+22:29.955 [34mINFO [0;39m [34mc.a.n.c.config.impl.CacheData :197 [0;39m main [32m                  [0;39m [fixed-train-127.0.0.1_8848] [add-listener] ok, tenant=train, dataId=batch.properties, group=DEFAULT_GROUP, cnt=1
+22:29.955 [34mINFO [0;39m [34mc.a.c.n.r.NacosContextRefresher:129 [0;39m main [32m                  [0;39m [Nacos Config] Listening config: dataId=batch.properties, group=DEFAULT_GROUP
+22:29.956 [34mINFO [0;39m [34mc.j.t.b.c.BatchApplication    :23  [0;39m main [32m                  [0;39m ∆Ù∂Ø≥…π¶£°£°
+22:29.956 [34mINFO [0;39m [34mc.j.t.b.c.BatchApplication    :24  [0;39m main [32m                  [0;39m ≤‚ ‘µÿ÷∑: 	http://127.0.0.1:9093/batch/hello
+22:31.942 [34mINFO [0;39m [34mo.s.s.q.SchedulerFactoryBean  :750 [0;39m Quartz Scheduler [schedulerFactoryBean] [32m                  [0;39m Starting Quartz Scheduler now, after delay of 2 seconds
+22:31.987 [34mINFO [0;39m [34mo.s.s.q.LocalDataSourceJobStore:866 [0;39m Quartz Scheduler [schedulerFactoryBean] [32m                  [0;39m Freed 0 triggers from 'acquired' / 'blocked' state.
+22:31.991 [34mINFO [0;39m [34mo.s.s.q.LocalDataSourceJobStore:876 [0;39m Quartz Scheduler [schedulerFactoryBean] [32m                  [0;39m Recovering 0 jobs that were in-progress at the time of the last shut-down.
+22:31.992 [34mINFO [0;39m [34mo.s.s.q.LocalDataSourceJobStore:889 [0;39m Quartz Scheduler [schedulerFactoryBean] [32m                  [0;39m Recovery complete.
+22:31.994 [34mINFO [0;39m [34mo.s.s.q.LocalDataSourceJobStore:896 [0;39m Quartz Scheduler [schedulerFactoryBean] [32m                  [0;39m Removed 0 'complete' triggers.
+22:31.995 [34mINFO [0;39m [34mo.s.s.q.LocalDataSourceJobStore:901 [0;39m Quartz Scheduler [schedulerFactoryBean] [32m                  [0;39m Removed 0 stale fired job entries.
+22:31.997 [34mINFO [0;39m [34mo.quartz.core.QuartzScheduler :547 [0;39m Quartz Scheduler [schedulerFactoryBean] [32m                  [0;39m Scheduler schedulerFactoryBean_$_NON_CLUSTERED started.

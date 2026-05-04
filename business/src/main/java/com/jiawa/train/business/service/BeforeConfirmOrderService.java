@@ -144,6 +144,7 @@ public class BeforeConfirmOrderService {
                 confirmOrderMQDto
         );
 
+
         return confirmOrder.getId();
     }
 
