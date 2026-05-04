@@ -9,6 +9,7 @@ import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.ObjectUtil;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
+import com.jiawa.train.business.domain.DailyTrainCarriage;
 import com.jiawa.train.business.domain.DailyTrain;
 import com.jiawa.train.business.domain.DailyTrainTicket;
 import com.jiawa.train.business.domain.DailyTrainTicketExample;
@@ -24,13 +25,18 @@ import com.jiawa.train.common.util.SnowUtil;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.redis.connection.RedisConnection;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
@@ -38,6 +44,15 @@ import java.util.List;
 public class DailyTrainTicketService {
 
     private static final Logger LOG = LoggerFactory.getLogger(DailyTrainTicketService.class);
+
+    /**
+     * 每个车厢、每个区间段的座位售卖bitmap
+     * key = DAILY_TRAIN_TICKET_SELL-{yyyy-MM-dd}-{trainCode}-{carriageIndex}-{segmentIndex}
+     * segmentIndex：0-based，对应相邻站点间的区间（长度 = stationCount - 1）
+     */
+    private static final String REDIS_KEY_SEAT_SELL_PRE = "DAILY_TRAIN_TICKET_SELL";
+
+    private static final String REDIS_KEY_TRAIN_CARRIAGE_COUNT = "DAILY_TRAIN_CARRIAGE_COUNT";
 
     @Resource
     private DailyTrainTicketMapper dailyTrainTicketMapper;
@@ -47,6 +62,12 @@ public class DailyTrainTicketService {
 
     @Resource
     private DailyTrainSeatService dailyTrainSeatService;
+
+    @Resource
+    private DailyTrainCarriageService dailyTrainCarriageService;
+
+    @Autowired
+    private StringRedisTemplate redisTemplate;
 
     public void save(DailyTrainTicketSaveReq req) {
         DateTime now = DateTime.now();
@@ -141,6 +162,9 @@ public class DailyTrainTicketService {
             LOG.info("该车次没有车站基础数据，生成该车次的余票信息结束");
             return;
         }
+
+        // 初始化每车厢、每区间段的座位售卖bitmap（全部可售：bit=1）
+        initSeatSellBitmaps(date, trainCode, stationList.size());
 
         DateTime now = DateTime.now();
         int ydz = dailyTrainSeatService.countSeat(date, trainCode, SeatTypeEnum.YDZ.getCode());
