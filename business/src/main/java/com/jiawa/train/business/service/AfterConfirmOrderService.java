@@ -3,6 +3,8 @@ package com.jiawa.train.business.service;
 import com.jiawa.train.business.domain.ConfirmOrder;
 import com.jiawa.train.business.domain.DailyTrainSeat;
 import com.jiawa.train.business.domain.DailyTrainTicket;
+import com.jiawa.train.business.domain.ConfirmOrderExample;
+import com.jiawa.train.business.domain.DailyTrainSeatExample;
 import com.jiawa.train.business.enums.ConfirmOrderStatusEnum;
 import com.jiawa.train.business.feign.MemberFeign;
 import com.jiawa.train.business.mapper.ConfirmOrderMapper;
@@ -14,6 +16,7 @@ import com.jiawa.train.common.resp.CommonResp;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
@@ -35,6 +38,9 @@ public class AfterConfirmOrderService {
 
     @Resource
     private ConfirmOrderMapper confirmOrderMapper;
+
+    @Resource
+    private DailyTrainTicketService dailyTrainTicketService;
 
     /**
      * 选中座位后事务处理：
@@ -134,5 +140,113 @@ public class AfterConfirmOrderService {
             //     throw new Exception("测试异常");
             // }
         }
+    }
+
+    /**
+     * 模拟 MQ：异步处理订单后置流程
+     * 1) 原子更新订单状态 INIT -> PENDING，失败则跳过（表示已处理过）
+     * 2) 更新座位 sell 区间位为 1
+     * 3) 生成会员车票
+     * 4) 更新订单状态为 SUCCESS
+     */
+    @Async
+    public void afterDoConfirmAsync(com.jiawa.train.business.dto.ConfirmOrderMQDto dto) {
+        Long confirmOrderId = dto.getConfirmOrderId();
+        if (confirmOrderId == null) {
+            return;
+        }
+
+        ConfirmOrder confirmOrder = confirmOrderMapper.selectByPrimaryKey(confirmOrderId);
+        if (confirmOrder == null) {
+            return;
+        }
+
+        // 原子更新 INIT -> PENDING
+        ConfirmOrderExample example = new ConfirmOrderExample();
+        example.createCriteria()
+                .andIdEqualTo(confirmOrderId)
+                .andStatusEqualTo(ConfirmOrderStatusEnum.INIT.getCode());
+        ConfirmOrder confirmOrderForUpdate = new ConfirmOrder();
+        confirmOrderForUpdate.setStatus(ConfirmOrderStatusEnum.PENDING.getCode());
+        confirmOrderForUpdate.setUpdateTime(new Date());
+        int updated = confirmOrderMapper.updateByExampleSelective(confirmOrderForUpdate, example);
+        if (updated == 0) {
+            LOG.info("订单已被处理过，跳过：id={}", confirmOrderId);
+            return;
+        }
+
+        // 重新读取（含 tickets blob）
+        confirmOrder = confirmOrderMapper.selectByPrimaryKey(confirmOrderId);
+
+        List<ConfirmOrderTicketReq> tickets = com.alibaba.fastjson.JSON.parseArray(confirmOrder.getTickets(), ConfirmOrderTicketReq.class);
+        if (tickets == null || tickets.size() != 1) {
+            return;
+        }
+        ConfirmOrderTicketReq ticket = tickets.get(0);
+
+        DailyTrainTicket dailyTrainTicket = dailyTrainTicketService.selectByUnique(
+                confirmOrder.getDate(),
+                confirmOrder.getTrainCode(),
+                confirmOrder.getStart(),
+                confirmOrder.getEnd()
+        );
+        if (dailyTrainTicket == null) {
+            return;
+        }
+
+        // 查询并更新座位 sell（只更新该座位，不再更新全区间余票）
+        DailyTrainSeatExample seatExample = new DailyTrainSeatExample();
+        seatExample.createCriteria()
+                .andDateEqualTo(confirmOrder.getDate())
+                .andTrainCodeEqualTo(confirmOrder.getTrainCode())
+                .andCarriageIndexEqualTo(ticket.getCarriageIndex())
+                .andCarriageSeatIndexEqualTo(ticket.getCarriageSeatIndex());
+        List<DailyTrainSeat> seatList = dailyTrainSeatMapper.selectByExample(seatExample);
+        if (seatList == null || seatList.isEmpty()) {
+            return;
+        }
+        DailyTrainSeat seat = seatList.get(0);
+        char[] chars = seat.getSell().toCharArray();
+        for (int i = dailyTrainTicket.getStartIndex(); i < dailyTrainTicket.getEndIndex(); i++) {
+            if (i >= 0 && i < chars.length) {
+                chars[i] = '1';
+            }
+        }
+//
+//        00000
+        DailyTrainSeat seatForUpdate = new DailyTrainSeat();
+        seatForUpdate.setId(seat.getId());
+        seatForUpdate.setSell(new String(chars));
+        seatForUpdate.setUpdateTime(new Date());
+        dailyTrainSeatMapper.updateByPrimaryKeySelective(seatForUpdate);
+
+        // 调用 member 服务生成车票
+        try {
+            MemberTicketReq memberTicketReq = new MemberTicketReq();
+            memberTicketReq.setMemberId(confirmOrder.getMemberId());
+            memberTicketReq.setPassengerId(ticket.getPassengerId());
+            memberTicketReq.setPassengerName(ticket.getPassengerName());
+            memberTicketReq.setTrainDate(dailyTrainTicket.getDate());
+            memberTicketReq.setTrainCode(dailyTrainTicket.getTrainCode());
+            memberTicketReq.setCarriageIndex(ticket.getCarriageIndex());
+            memberTicketReq.setSeatRow(ticket.getSeatRow());
+            memberTicketReq.setSeatCol(ticket.getSeatCol());
+            memberTicketReq.setStartStation(dailyTrainTicket.getStart());
+            memberTicketReq.setStartTime(dailyTrainTicket.getStartTime());
+            memberTicketReq.setEndStation(dailyTrainTicket.getEnd());
+            memberTicketReq.setEndTime(dailyTrainTicket.getEndTime());
+            memberTicketReq.setSeatType(seat.getSeatType());
+            memberFeign.save(memberTicketReq);
+        } catch (Exception e) {
+            LOG.error("调用member生成车票失败，id={}", confirmOrderId, e);
+            return;
+        }
+
+        // 更新订单状态为 SUCCESS
+        ConfirmOrder successUpdate = new ConfirmOrder();
+        successUpdate.setId(confirmOrderId);
+        successUpdate.setUpdateTime(new Date());
+        successUpdate.setStatus(ConfirmOrderStatusEnum.SUCCESS.getCode());
+        confirmOrderMapper.updateByPrimaryKeySelective(successUpdate);
     }
 }

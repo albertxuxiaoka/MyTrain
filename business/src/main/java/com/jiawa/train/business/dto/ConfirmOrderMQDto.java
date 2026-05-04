@@ -18,6 +18,8 @@ public class ConfirmOrderMQDto {
      */
     private String trainCode;
 
+    private Long confirmOrderId;
+
     public String getLogId() {
         return logId;
     }
@@ -42,12 +44,21 @@ public class ConfirmOrderMQDto {
         this.trainCode = trainCode;
     }
 
+    public Long getConfirmOrderId() {
+        return confirmOrderId;
+    }
+
+    public void setConfirmOrderId(Long confirmOrderId) {
+        this.confirmOrderId = confirmOrderId;
+    }
+
     @Override
     public String toString() {
         final StringBuilder sb = new StringBuilder("ConfirmOrderMQDto{");
         sb.append("logId=").append(logId);
         sb.append(", date=").append(date);
         sb.append(", trainCode='").append(trainCode).append('\'');
+        sb.append(", confirmOrderId=").append(confirmOrderId);
         sb.append('}');
         return sb.toString();
     }

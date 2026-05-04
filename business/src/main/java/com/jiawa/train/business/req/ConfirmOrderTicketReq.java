@@ -40,6 +40,14 @@ public class ConfirmOrderTicketReq {
      */
     private String seat;
 
+    private Integer carriageIndex;
+
+    private Integer carriageSeatIndex;
+
+    private String seatRow;
+
+    private String seatCol;
+
     public Long getPassengerId() {
         return passengerId;
     }
@@ -88,6 +96,38 @@ public class ConfirmOrderTicketReq {
         this.seat = seat;
     }
 
+    public Integer getCarriageIndex() {
+        return carriageIndex;
+    }
+
+    public void setCarriageIndex(Integer carriageIndex) {
+        this.carriageIndex = carriageIndex;
+    }
+
+    public Integer getCarriageSeatIndex() {
+        return carriageSeatIndex;
+    }
+
+    public void setCarriageSeatIndex(Integer carriageSeatIndex) {
+        this.carriageSeatIndex = carriageSeatIndex;
+    }
+
+    public String getSeatRow() {
+        return seatRow;
+    }
+
+    public void setSeatRow(String seatRow) {
+        this.seatRow = seatRow;
+    }
+
+    public String getSeatCol() {
+        return seatCol;
+    }
+
+    public void setSeatCol(String seatCol) {
+        this.seatCol = seatCol;
+    }
+
     @Override
     public String toString() {
         final StringBuilder sb = new StringBuilder("ConfirmOrderTicketReq{");
@@ -97,6 +137,10 @@ public class ConfirmOrderTicketReq {
         sb.append(", passengerIdCard='").append(passengerIdCard).append('\'');
         sb.append(", seatTypeCode='").append(seatTypeCode).append('\'');
         sb.append(", seat='").append(seat).append('\'');
+        sb.append(", carriageIndex=").append(carriageIndex);
+        sb.append(", carriageSeatIndex=").append(carriageSeatIndex);
+        sb.append(", seatRow='").append(seatRow).append('\'');
+        sb.append(", seatCol='").append(seatCol).append('\'');
         sb.append('}');
         return sb.toString();
     }
