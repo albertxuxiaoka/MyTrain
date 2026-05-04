@@ -18,7 +18,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
@@ -150,7 +149,6 @@ public class AfterConfirmOrderService {
      * 3) 生成会员车票
      * 4) 更新订单状态为 SUCCESS
      */
-    @Async
     public void afterDoConfirmAsync(com.jiawa.train.business.dto.ConfirmOrderMQDto dto) {
         Long confirmOrderId = dto.getConfirmOrderId();
         if (confirmOrderId == null) {

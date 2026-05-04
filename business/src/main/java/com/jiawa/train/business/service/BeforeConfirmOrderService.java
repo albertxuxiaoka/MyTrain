@@ -21,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
@@ -46,12 +47,14 @@ public class BeforeConfirmOrderService {
     @Autowired
     private StringRedisTemplate redisTemplate;
 
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
+
     // @Resource
     // public RocketMQTemplate rocket
     // public RocketMQTemplate rocketMQTemplate;
 
-    @Resource
-    private AfterConfirmOrderService afterConfirmOrderService;
+    // 后置流程由 RabbitMQ 消费者触发
 
     private static final String REDIS_KEY_SEAT_SELL_PRE = "DAILY_TRAIN_TICKET_SELL";
 
@@ -129,13 +132,17 @@ public class BeforeConfirmOrderService {
         confirmOrder.setTickets(JSON.toJSONString(tickets));
         confirmOrderMapper.insert(confirmOrder);
 
-        // 模拟 MQ：异步执行后置流程
+        // RabbitMQ：发送消息，消费者触发后置流程
         ConfirmOrderMQDto confirmOrderMQDto = new ConfirmOrderMQDto();
         confirmOrderMQDto.setDate(req.getDate());
         confirmOrderMQDto.setTrainCode(req.getTrainCode());
         confirmOrderMQDto.setLogId(MDC.get("LOG_ID"));
         confirmOrderMQDto.setConfirmOrderId(confirmOrder.getId());
-        afterConfirmOrderService.afterDoConfirmAsync(confirmOrderMQDto);
+        rabbitTemplate.convertAndSend(
+                com.jiawa.train.business.config.RabbitMqConfig.CONFIRM_ORDER_EXCHANGE,
+                com.jiawa.train.business.config.RabbitMqConfig.CONFIRM_ORDER_ROUTING_KEY,
+                confirmOrderMQDto
+        );
 
         return confirmOrder.getId();
     }
