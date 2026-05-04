@@ -66,6 +66,14 @@ public class DailyTrainTicketService {
     private static final String REDIS_KEY_TRAIN_CARRIAGE_COUNT = "DAILY_TRAIN_CARRIAGE_COUNT";
 
     /**
+     * 站名 -> 站序（用于购票时快速获取 startIndex/endIndex）
+     * key: DAILY_TRAIN_STATION_INDEX-{yyyy-MM-dd}-{trainCode}
+     * field: stationName
+     * value: stationIndex
+     */
+    private static final String REDIS_KEY_STATION_INDEX_PRE = "DAILY_TRAIN_STATION_INDEX";
+
+    /**
      * 车次区间余票缓存（按“某日-车次-出发站序-到达站序”）
      * value: ydz,edz,rw,yw（逗号分隔）
      */
@@ -228,14 +236,29 @@ public class DailyTrainTicketService {
             return;
         }
 
+        // 加载“站名->站序”到 Redis，供购票时直接取 startIndex/endIndex
+        String dateStr = DateUtil.formatDate(date);
+        String stationIndexKey = REDIS_KEY_STATION_INDEX_PRE + "-" + dateStr + "-" + trainCode;
+        Map<String, String> stationIndexMap = new HashMap<>();
+        for (TrainStation station : stationList) {
+            if (station == null || StrUtil.isBlank(station.getName()) || station.getIndex() == null) {
+                continue;
+            }
+            stationIndexMap.put(station.getName(), String.valueOf(station.getIndex()));
+        }
+        if (CollUtil.isNotEmpty(stationIndexMap)) {
+            redisTemplate.delete(stationIndexKey);
+            redisTemplate.opsForHash().putAll(stationIndexKey, stationIndexMap);
+        }
+
         // 初始化每车厢、每区间段的座位售卖bitmap（全部可售：bit=1）
         initSeatSellBitmaps(date, trainCode, stationList.size());
 
         DateTime now = DateTime.now();
-        int ydz = dailyTrainSeatService.countSeat(date, trainCode, SeatTypeEnum.YDZ.getCode());
-        int edz = dailyTrainSeatService.countSeat(date, trainCode, SeatTypeEnum.EDZ.getCode());
-        int rw = dailyTrainSeatService.countSeat(date, trainCode, SeatTypeEnum.RW.getCode());
-        int yw = dailyTrainSeatService.countSeat(date, trainCode, SeatTypeEnum.YW.getCode());
+        int ydz = 0;//dailyTrainSeatService.countSeat(date, trainCode, SeatTypeEnum.YDZ.getCode());
+        int edz = 0;//dailyTrainSeatService.countSeat(date, trainCode, SeatTypeEnum.EDZ.getCode());
+        int rw = 0;//dailyTrainSeatService.countSeat(date, trainCode, SeatTypeEnum.RW.getCode());
+        int yw = 0;//dailyTrainSeatService.countSeat(date, trainCode, SeatTypeEnum.YW.getCode());
         for (int i = 0; i < stationList.size(); i++) {
             // 得到出发站
             TrainStation trainStationStart = stationList.get(i);

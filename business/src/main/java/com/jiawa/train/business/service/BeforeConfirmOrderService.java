@@ -7,7 +7,6 @@ import com.alibaba.csp.sentinel.slots.block.BlockException;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.TypeReference;
 import com.jiawa.train.business.domain.ConfirmOrder;
-import com.jiawa.train.business.domain.DailyTrainSeat;
 import com.jiawa.train.business.dto.ConfirmOrderMQDto;
 import com.jiawa.train.business.enums.ConfirmOrderStatusEnum;
 import com.jiawa.train.business.mapper.ConfirmOrderMapper;
@@ -31,6 +30,7 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Arrays;
 
 @Service
 public class BeforeConfirmOrderService {
@@ -46,12 +46,6 @@ public class BeforeConfirmOrderService {
     @Autowired
     private StringRedisTemplate redisTemplate;
 
-    @Resource
-    private DailyTrainSeatService dailyTrainSeatService;
-
-    @Resource
-    private DailyTrainTicketService dailyTrainTicketService;
-
     // @Resource
     // public RocketMQTemplate rocket
     // public RocketMQTemplate rocketMQTemplate;
@@ -62,6 +56,8 @@ public class BeforeConfirmOrderService {
     private static final String REDIS_KEY_SEAT_SELL_PRE = "DAILY_TRAIN_TICKET_SELL";
 
     private static final String REDIS_KEY_TRAIN_CARRIAGE_COUNT = "DAILY_TRAIN_CARRIAGE_COUNT";
+
+    private static final String REDIS_KEY_STATION_INDEX_PRE = "DAILY_TRAIN_STATION_INDEX";
 
     @SentinelResource(value = "beforeDoConfirm", blockHandler = "beforeDoConfirmBlock")
     public Long beforeDoConfirm(ConfirmOrderDoReq req) {
@@ -86,34 +82,36 @@ public class BeforeConfirmOrderService {
         }
 
         // 令牌校验通过后：先抢座（Lua 原子选座+占座），成功后再落库确认订单
-        // 计算区间索引（占座需要 segmentIndex 范围）
-        com.jiawa.train.business.domain.DailyTrainTicket dailyTrainTicket = dailyTrainTicketService.selectByUnique(
-                req.getDate(),
-                req.getTrainCode(),
-                req.getStart(),
-                req.getEnd()
-        );
-        if (dailyTrainTicket == null) {
+        // 从 Redis 一次取出 start/end 的站序（不查库）
+        Integer startIndex = null;
+        Integer endIndex = null;
+        {
+            String dateStr = cn.hutool.core.date.DateUtil.formatDate(req.getDate());
+            String key = REDIS_KEY_STATION_INDEX_PRE + "-" + dateStr + "-" + req.getTrainCode();
+            List<Object> indices = redisTemplate.opsForHash().multiGet(key, Arrays.asList(req.getStart(), req.getEnd()));
+            if (indices != null && indices.size() == 2) {
+                startIndex = indices.get(0) == null ? null : Integer.valueOf(indices.get(0).toString());
+                endIndex = indices.get(1) == null ? null : Integer.valueOf(indices.get(1).toString());
+            }
+        }
+        if (startIndex == null || endIndex == null) {
             throw new BusinessException(BusinessExceptionEnum.CONFIRM_ORDER_EXCEPTION);
         }
 
-        DailyTrainSeat chosenSeat = chooseAndOccupyOneSeatByLua(
+        ChosenSeat chosenSeat = chooseAndOccupyOneSeatByLua(
                 req.getDate(),
                 req.getTrainCode(),
                 tickets.get(0).getSeatTypeCode(),
-                dailyTrainTicket.getStartIndex(),
-                dailyTrainTicket.getEndIndex()
+                startIndex,
+                endIndex
         );
         if (chosenSeat == null) {
             throw new BusinessException(BusinessExceptionEnum.CONFIRM_ORDER_TICKET_COUNT_ERROR);
         }
 
-        // 回填 seat 信息到 tickets（用于生成会员车票）
-        tickets.get(0).setSeat(chosenSeat.getCol() + chosenSeat.getRow());
-        tickets.get(0).setCarriageIndex(chosenSeat.getCarriageIndex());
-        tickets.get(0).setCarriageSeatIndex(chosenSeat.getCarriageSeatIndex());
-        tickets.get(0).setSeatRow(chosenSeat.getRow());
-        tickets.get(0).setSeatCol(chosenSeat.getCol());
+        // 订单落库时只写“车厢内座位序号”（不写具体排/列）
+        tickets.get(0).setCarriageIndex(chosenSeat.carriageIndex());
+        tickets.get(0).setCarriageSeatIndex(chosenSeat.carriageSeatIndex());
 
         // 保存确认订单表（INIT）
         DateTime now = DateTime.now();
@@ -146,7 +144,9 @@ public class BeforeConfirmOrderService {
      * 随机采样车厢 + Lua 原子选座/占座。
      * 返回选中的座位（包含车厢/排/列信息，用于写入订单 tickets）。
      */
-    private DailyTrainSeat chooseAndOccupyOneSeatByLua(Date date, String trainCode, String seatType, Integer startIndex, Integer endIndex) {
+    private record ChosenSeat(Integer carriageIndex, Integer carriageSeatIndex) {}
+
+    private ChosenSeat chooseAndOccupyOneSeatByLua(Date date, String trainCode, String seatType, Integer startIndex, Integer endIndex) {
         if (startIndex == null || endIndex == null || endIndex <= startIndex) {
             return null;
         }
@@ -231,11 +231,7 @@ public class BeforeConfirmOrderService {
             }
 
             int carriageSeatIndex = seatBitPos.intValue() + 1; // 1-based
-            List<DailyTrainSeat> seatList = dailyTrainSeatService.selectByCarriage(date, trainCode, carriageIndex);
-            if (seatList == null || seatList.isEmpty() || carriageSeatIndex > seatList.size()) {
-                return null;
-            }
-            return seatList.get(carriageSeatIndex - 1);
+            return new ChosenSeat(carriageIndex, carriageSeatIndex);
         }
         return null;
     }

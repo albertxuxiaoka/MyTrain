@@ -16,11 +16,14 @@ import com.jiawa.train.common.resp.CommonResp;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Arrays;
 
 @Service
 public class AfterConfirmOrderService {
@@ -41,6 +44,11 @@ public class AfterConfirmOrderService {
 
     @Resource
     private DailyTrainTicketService dailyTrainTicketService;
+
+    @Autowired
+    private StringRedisTemplate redisTemplate;
+
+    private static final String REDIS_KEY_STATION_INDEX_PRE = "DAILY_TRAIN_STATION_INDEX";
 
     /**
      * 选中座位后事务处理：
@@ -100,14 +108,7 @@ public class AfterConfirmOrderService {
             }
             LOG.info("影响到达站区间：" + minEndIndex + "-" + maxEndIndex);
 
-            dailyTrainTicketMapperCust.updateCountBySell(
-                    dailyTrainSeat.getDate(),
-                    dailyTrainSeat.getTrainCode(),
-                    dailyTrainSeat.getSeatType(),
-                    minStartIndex,
-                    maxStartIndex,
-                    minEndIndex,
-                    maxEndIndex);
+            // 新流程不再维护 daily_train_ticket 的全区间余票（不更新 daily_train_ticket）
 
             // 调用会员服务接口，为会员增加一张车票
             MemberTicketReq memberTicketReq = new MemberTicketReq();
@@ -184,6 +185,23 @@ public class AfterConfirmOrderService {
         }
         ConfirmOrderTicketReq ticket = tickets.get(0);
 
+        // 从 Redis 一次取出 start/end 的站序（不查库）
+        Integer startIndex = null;
+        Integer endIndex = null;
+        {
+            String dateStr = cn.hutool.core.date.DateUtil.formatDate(confirmOrder.getDate());
+            String key = REDIS_KEY_STATION_INDEX_PRE + "-" + dateStr + "-" + confirmOrder.getTrainCode();
+            List<Object> indices = redisTemplate.opsForHash().multiGet(key, Arrays.asList(confirmOrder.getStart(), confirmOrder.getEnd()));
+            if (indices != null && indices.size() == 2) {
+                startIndex = indices.get(0) == null ? null : Integer.valueOf(indices.get(0).toString());
+                endIndex = indices.get(1) == null ? null : Integer.valueOf(indices.get(1).toString());
+            }
+        }
+        if (startIndex == null || endIndex == null) {
+            return;
+        }
+
+        // 其它信息（如发到站时间）仍从 daily_train_ticket 取；但站序不依赖 DB
         DailyTrainTicket dailyTrainTicket = dailyTrainTicketService.selectByUnique(
                 confirmOrder.getDate(),
                 confirmOrder.getTrainCode(),
@@ -207,7 +225,7 @@ public class AfterConfirmOrderService {
         }
         DailyTrainSeat seat = seatList.get(0);
         char[] chars = seat.getSell().toCharArray();
-        for (int i = dailyTrainTicket.getStartIndex(); i < dailyTrainTicket.getEndIndex(); i++) {
+        for (int i = startIndex; i < endIndex; i++) {
             if (i >= 0 && i < chars.length) {
                 chars[i] = '1';
             }
@@ -219,6 +237,16 @@ public class AfterConfirmOrderService {
         seatForUpdate.setSell(new String(chars));
         seatForUpdate.setUpdateTime(new Date());
         dailyTrainSeatMapper.updateByPrimaryKeySelective(seatForUpdate);
+
+        // 异步补全 tickets 的具体座位信息（排/列/seat）并回写订单
+        ticket.setSeatRow(seat.getRow());
+        ticket.setSeatCol(seat.getCol());
+        ticket.setSeat(seat.getCol() + seat.getRow());
+        confirmOrderForUpdate = new ConfirmOrder();
+        confirmOrderForUpdate.setId(confirmOrderId);
+        confirmOrderForUpdate.setUpdateTime(new Date());
+        confirmOrderForUpdate.setTickets(com.alibaba.fastjson.JSON.toJSONString(tickets));
+        confirmOrderMapper.updateByPrimaryKeySelective(confirmOrderForUpdate);
 
         // 调用 member 服务生成车票
         try {
