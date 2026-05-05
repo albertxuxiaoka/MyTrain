@@ -26,6 +26,7 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StopWatch;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -67,90 +68,133 @@ public class BeforeConfirmOrderService {
 
     @SentinelResource(value = "beforeDoConfirm", blockHandler = "beforeDoConfirmBlock")
     public Long beforeDoConfirm(ConfirmOrderDoReq req) {
-        req.setMemberId(LoginMemberContext.getId());
+        StopWatch sw = new StopWatch("beforeDoConfirm");
+        Long confirmOrderId = null;
+        boolean tokenAcquired = false;
 
-        // 一个请求只允许购买一张票（一个乘客），且不可选座
-        List<ConfirmOrderTicketReq> tickets = req.getTickets();
-        if (tickets == null || tickets.size() != 1) {
-            throw new BusinessException(BusinessExceptionEnum.CONFIRM_ORDER_EXCEPTION);
-        }
-        if (tickets.get(0) != null && StrUtil.isNotBlank(tickets.get(0).getSeat())) {
-            throw new BusinessException(BusinessExceptionEnum.CONFIRM_ORDER_EXCEPTION);
-        }
+        try {
+            sw.start("1. 参数校验");
+            req.setMemberId(LoginMemberContext.getId());
 
-        // 校验令牌余量
-        boolean validSkToken = skTokenService.validSkToken(req.getDate(), req.getTrainCode(), LoginMemberContext.getId());
-        if (validSkToken) {
+            List<ConfirmOrderTicketReq> tickets = req.getTickets();
+            if (tickets == null || tickets.size() != 1) {
+                throw new BusinessException(BusinessExceptionEnum.CONFIRM_ORDER_EXCEPTION);
+            }
+            if (tickets.get(0) != null && StrUtil.isNotBlank(tickets.get(0).getSeat())) {
+                throw new BusinessException(BusinessExceptionEnum.CONFIRM_ORDER_EXCEPTION);
+            }
+            sw.stop();
+
+            sw.start("2. 校验并扣减令牌");
+            boolean validSkToken = skTokenService.validSkToken(
+                    req.getDate(),
+                    req.getTrainCode(),
+                    LoginMemberContext.getId()
+            );
+            tokenAcquired = validSkToken;
+
+            if (!validSkToken) {
+                LOG.info("令牌校验不通过");
+                throw new BusinessException(BusinessExceptionEnum.CONFIRM_ORDER_SK_TOKEN_FAIL);
+            }
             LOG.info("令牌校验通过");
-        } else {
-            LOG.info("令牌校验不通过");
-            throw new BusinessException(BusinessExceptionEnum.CONFIRM_ORDER_SK_TOKEN_FAIL);
-        }
+            sw.stop();
 
-        // 令牌校验通过后：先抢座（Lua 原子选座+占座），成功后再落库确认订单
-        // 从 Redis 一次取出 start/end 的站序（不查库）
-        Integer startIndex = null;
-        Integer endIndex = null;
-        {
+            sw.start("3. Redis读取站序");
+            Integer startIndex = null;
+            Integer endIndex = null;
             String dateStr = cn.hutool.core.date.DateUtil.formatDate(req.getDate());
             String key = REDIS_KEY_STATION_INDEX_PRE + "-" + dateStr + "-" + req.getTrainCode();
-            List<Object> indices = redisTemplate.opsForHash().multiGet(key, Arrays.asList(req.getStart(), req.getEnd()));
+
+            List<Object> indices = redisTemplate.opsForHash().multiGet(
+                    key,
+                    Arrays.asList(req.getStart(), req.getEnd())
+            );
+
             if (indices != null && indices.size() == 2) {
                 startIndex = indices.get(0) == null ? null : Integer.valueOf(indices.get(0).toString());
                 endIndex = indices.get(1) == null ? null : Integer.valueOf(indices.get(1).toString());
             }
+
+            if (startIndex == null || endIndex == null) {
+                throw new BusinessException(BusinessExceptionEnum.CONFIRM_ORDER_EXCEPTION);
+            }
+            sw.stop();
+
+            sw.start("4. Lua选座并占座");
+            ChosenSeat chosenSeat = chooseAndOccupyOneSeatByLua(
+                    req.getDate(),
+                    req.getTrainCode(),
+                    tickets.get(0).getSeatTypeCode(),
+                    startIndex,
+                    endIndex
+            );
+
+            if (chosenSeat == null) {
+                throw new BusinessException(BusinessExceptionEnum.CONFIRM_ORDER_TICKET_COUNT_ERROR);
+            }
+            sw.stop();
+
+            sw.start("5. 构建订单对象");
+            tickets.get(0).setCarriageIndex(chosenSeat.carriageIndex());
+            tickets.get(0).setCarriageSeatIndex(chosenSeat.carriageSeatIndex());
+
+            DateTime now = DateTime.now();
+            ConfirmOrder confirmOrder = new ConfirmOrder();
+            confirmOrder.setId(SnowUtil.getSnowflakeNextId());
+            confirmOrder.setCreateTime(now);
+            confirmOrder.setUpdateTime(now);
+            confirmOrder.setMemberId(req.getMemberId());
+            confirmOrder.setDate(req.getDate());
+            confirmOrder.setTrainCode(req.getTrainCode());
+            confirmOrder.setStart(req.getStart());
+            confirmOrder.setEnd(req.getEnd());
+            confirmOrder.setDailyTrainTicketId(req.getDailyTrainTicketId());
+            confirmOrder.setStatus(ConfirmOrderStatusEnum.INIT.getCode());
+            confirmOrder.setTickets(JSON.toJSONString(tickets));
+            sw.stop();
+
+            sw.start("6. 订单落库");
+            confirmOrderMapper.insert(confirmOrder);
+            confirmOrderId = confirmOrder.getId();
+            sw.stop();
+
+            sw.start("7. RabbitMQ发送消息");
+            ConfirmOrderMQDto confirmOrderMQDto = new ConfirmOrderMQDto();
+            confirmOrderMQDto.setDate(req.getDate());
+            confirmOrderMQDto.setTrainCode(req.getTrainCode());
+            confirmOrderMQDto.setLogId(MDC.get("LOG_ID"));
+            confirmOrderMQDto.setConfirmOrderId(confirmOrder.getId());
+
+            rabbitTemplate.convertAndSend(
+                    com.jiawa.train.business.config.RabbitMqConfig.CONFIRM_ORDER_EXCHANGE,
+                    com.jiawa.train.business.config.RabbitMqConfig.CONFIRM_ORDER_ROUTING_KEY,
+                    confirmOrderMQDto
+            );
+            sw.stop();
+
+            return confirmOrder.getId();
+
+        } finally {
+            if (sw.isRunning()) {
+                sw.stop();
+            }
+
+            if (tokenAcquired) {
+                sw.start("8. 归还令牌");
+                skTokenService.returnSkToken(req.getDate(), req.getTrainCode());
+                sw.stop();
+            }
+
+            LOG.info("确认订单耗时统计 memberId={} trainCode={} start={} end={} orderId={}\n{}",
+                    req.getMemberId(),
+                    req.getTrainCode(),
+                    req.getStart(),
+                    req.getEnd(),
+                    confirmOrderId,
+                    sw.prettyPrint()
+            );
         }
-        if (startIndex == null || endIndex == null) {
-            skTokenService.returnSkToken(req.getDate(), req.getTrainCode());
-            throw new BusinessException(BusinessExceptionEnum.CONFIRM_ORDER_EXCEPTION);
-        }
-
-        ChosenSeat chosenSeat = chooseAndOccupyOneSeatByLua(
-                req.getDate(),
-                req.getTrainCode(),
-                tickets.get(0).getSeatTypeCode(),
-                startIndex,
-                endIndex
-        );
-        if (chosenSeat == null) {
-            skTokenService.returnSkToken(req.getDate(), req.getTrainCode());
-            throw new BusinessException(BusinessExceptionEnum.CONFIRM_ORDER_TICKET_COUNT_ERROR);
-        }
-
-        // 订单落库时只写“车厢内座位序号”（不写具体排/列）
-        tickets.get(0).setCarriageIndex(chosenSeat.carriageIndex());
-        tickets.get(0).setCarriageSeatIndex(chosenSeat.carriageSeatIndex());
-
-        // 保存确认订单表（INIT）
-        DateTime now = DateTime.now();
-        ConfirmOrder confirmOrder = new ConfirmOrder();
-        confirmOrder.setId(SnowUtil.getSnowflakeNextId());
-        confirmOrder.setCreateTime(now);
-        confirmOrder.setUpdateTime(now);
-        confirmOrder.setMemberId(req.getMemberId());
-        confirmOrder.setDate(req.getDate());
-        confirmOrder.setTrainCode(req.getTrainCode());
-        confirmOrder.setStart(req.getStart());
-        confirmOrder.setEnd(req.getEnd());
-        confirmOrder.setDailyTrainTicketId(req.getDailyTrainTicketId());
-        confirmOrder.setStatus(ConfirmOrderStatusEnum.INIT.getCode());
-        confirmOrder.setTickets(JSON.toJSONString(tickets));
-        confirmOrderMapper.insert(confirmOrder);
-
-        // RabbitMQ：发送消息，消费者触发后置流程
-        ConfirmOrderMQDto confirmOrderMQDto = new ConfirmOrderMQDto();
-        confirmOrderMQDto.setDate(req.getDate());
-        confirmOrderMQDto.setTrainCode(req.getTrainCode());
-        confirmOrderMQDto.setLogId(MDC.get("LOG_ID"));
-        confirmOrderMQDto.setConfirmOrderId(confirmOrder.getId());
-        rabbitTemplate.convertAndSend(
-                com.jiawa.train.business.config.RabbitMqConfig.CONFIRM_ORDER_EXCHANGE,
-                com.jiawa.train.business.config.RabbitMqConfig.CONFIRM_ORDER_ROUTING_KEY,
-                confirmOrderMQDto
-        );
-        skTokenService.returnSkToken(req.getDate(), req.getTrainCode());
-
-        return confirmOrder.getId();
     }
 
     /**
@@ -160,34 +204,39 @@ public class BeforeConfirmOrderService {
     private record ChosenSeat(Integer carriageIndex, Integer carriageSeatIndex) {}
 
     private ChosenSeat chooseAndOccupyOneSeatByLua(Date date, String trainCode, String seatType, Integer startIndex, Integer endIndex) {
-        if (startIndex == null || endIndex == null || endIndex <= startIndex) {
-            return null;
-        }
+        StopWatch sw = new StopWatch("chooseAndOccupyOneSeatByLua");
 
-        String dateStr = cn.hutool.core.date.DateUtil.formatDate(date);
-        String carriageKey = REDIS_KEY_TRAIN_CARRIAGE_COUNT + "-" + dateStr + "-" + trainCode;
-        String carriageJson = redisTemplate.opsForValue().get(carriageKey);
-        if (StrUtil.isBlank(carriageJson)) {
-            return null;
-        }
-        Map<String, List<Integer>> seatTypeToCarriages = JSON.parseObject(
-                carriageJson,
-                new TypeReference<Map<String, List<Integer>>>() {}
-        );
-        List<Integer> carriageIndexList = (seatTypeToCarriages == null) ? null : seatTypeToCarriages.get(seatType);
-        if (carriageIndexList == null || carriageIndexList.isEmpty()) {
-            return null;
-        }
+        try {
+            sw.start("1. 参数校验");
+            if (startIndex == null || endIndex == null || endIndex <= startIndex) {
+                return null;
+            }
+            sw.stop();
 
-        // 不再按车厢逐个采样；保留校验逻辑即可
+            sw.start("2. 读取车厢结构Redis");
+            String dateStr = cn.hutool.core.date.DateUtil.formatDate(date);
+            String carriageKey = REDIS_KEY_TRAIN_CARRIAGE_COUNT + "-" + dateStr + "-" + trainCode;
+            String carriageJson = redisTemplate.opsForValue().get(carriageKey);
+            if (StrUtil.isBlank(carriageJson)) {
+                return null;
+            }
+            sw.stop();
 
-        DefaultRedisScript<Long> script = new DefaultRedisScript<>();
-        script.setResultType(Long.class);
-        script.setScriptText("""
-                -- KEYS: segment bitmap keys (same carriage, 覆盖区间段)
-                -- ARGV[1]: tmpKey
-                -- ARGV[2]: maskKey
-                -- return: seatBitPos (>=0) or -1
+            sw.start("3. 解析车厢结构JSON");
+            Map<String, List<Integer>> seatTypeToCarriages = JSON.parseObject(
+                    carriageJson,
+                    new TypeReference<Map<String, List<Integer>>>() {}
+            );
+            List<Integer> carriageIndexList = (seatTypeToCarriages == null) ? null : seatTypeToCarriages.get(seatType);
+            if (carriageIndexList == null || carriageIndexList.isEmpty()) {
+                return null;
+            }
+            sw.stop();
+
+            sw.start("4. 初始化Lua脚本");
+            DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+            script.setResultType(Long.class);
+            script.setScriptText("""
                 local tmpKey = ARGV[1]
                 local maskKey = ARGV[2]
                 redis.call('BITOP','AND', tmpKey, unpack(KEYS))
@@ -216,61 +265,115 @@ public class BeforeConfirmOrderService {
                 redis.call('DEL', maskKey)
                 return pos
                 """);
+            sw.stop();
 
-        // 已改为：车次-座位类型级 bitmap，不再按车厢循环选座；seatBitPos 通过映射换算车厢号
-        List<String> keys = new ArrayList<>();
-        for (int segmentIndex = startIndex; segmentIndex < endIndex; segmentIndex++) {
-            keys.add(REDIS_KEY_SEAT_SELL_PRE + "-" + dateStr + "-" + trainCode + "-" + seatType + "-" + segmentIndex);
-        }
-        if (keys.isEmpty()) {
-            return null;
-        }
+            sw.start("5. 构建区间bitmap keys");
+            List<String> keys = new ArrayList<>();
+            for (int segmentIndex = startIndex; segmentIndex < endIndex; segmentIndex++) {
+                keys.add(REDIS_KEY_SEAT_SELL_PRE + "-" + dateStr + "-" + trainCode + "-" + seatType + "-" + segmentIndex);
+            }
+            if (keys.isEmpty()) {
+                return null;
+            }
+            sw.stop();
 
-        String tmpKey = "TMP_AND-" + UUID.randomUUID();
-        String maskKey = "TMP_MASK-" + UUID.randomUUID();
-        Long seatBitPos = redisTemplate.execute(script, keys, tmpKey, maskKey);
-        if (seatBitPos == null || seatBitPos < 0) {
-            return null;
+            sw.start("6. 执行Lua选座占座");
+            String tmpKey = "TMP_AND-" + UUID.randomUUID();
+            String maskKey = "TMP_MASK-" + UUID.randomUUID();
+            Long seatBitPos = redisTemplate.execute(script, keys, tmpKey, maskKey);
+            if (seatBitPos == null || seatBitPos < 0) {
+                return null;
+            }
+            sw.stop();
+
+            sw.start("7. seatBitPos映射车厢");
+            ChosenSeat chosenSeat = mapSeatBitPosToCarriage(dateStr, trainCode, seatType, seatBitPos.intValue());
+            sw.stop();
+
+            return chosenSeat;
+
+        } finally {
+            if (sw.isRunning()) {
+                sw.stop();
+            }
+
+            LOG.info("选座耗时统计 trainCode={} seatType={} startIndex={} endIndex={}\n{}",
+                    trainCode,
+                    seatType,
+                    startIndex,
+                    endIndex,
+                    sw.prettyPrint()
+            );
         }
-        return mapSeatBitPosToCarriage(dateStr, trainCode, seatType, seatBitPos.intValue());
     }
 
     private ChosenSeat mapSeatBitPosToCarriage(String dateStr, String trainCode, String seatType, int seatBitPos) {
-        if (seatBitPos < 0) {
-            return null;
-        }
+        StopWatch sw = new StopWatch("mapSeatBitPosToCarriage");
 
-        String carriageKey = REDIS_KEY_TRAIN_CARRIAGE_COUNT + "-" + dateStr + "-" + trainCode;
-        String carriageJson = redisTemplate.opsForValue().get(carriageKey);
-        if (StrUtil.isBlank(carriageJson)) {
-            return null;
-        }
-        Map<String, List<Integer>> seatTypeToCarriages = JSON.parseObject(
-                carriageJson,
-                new TypeReference<Map<String, List<Integer>>>() {}
-        );
-        List<Integer> carriageIndexList = (seatTypeToCarriages == null) ? null : seatTypeToCarriages.get(seatType);
-        if (CollUtil.isEmpty(carriageIndexList)) {
-            return null;
-        }
+        try {
+            sw.start("1. 参数校验");
+            if (seatBitPos < 0) {
+                return null;
+            }
+            sw.stop();
 
-        String carriageSeatCountKey = REDIS_KEY_CARRIAGE_SEAT_COUNT_PRE + "-" + dateStr + "-" + trainCode;
-        int offset = seatBitPos;
-        for (Integer carriageIndex : carriageIndexList) {
-            if (carriageIndex == null) {
-                continue;
+            sw.start("2. 读取车厢结构Redis");
+            String carriageKey = REDIS_KEY_TRAIN_CARRIAGE_COUNT + "-" + dateStr + "-" + trainCode;
+            String carriageJson = redisTemplate.opsForValue().get(carriageKey);
+            if (StrUtil.isBlank(carriageJson)) {
+                return null;
             }
-            Object seatCountObj = redisTemplate.opsForHash().get(carriageSeatCountKey, String.valueOf(carriageIndex));
-            Integer seatCount = seatCountObj == null ? null : Integer.valueOf(seatCountObj.toString());
-            if (seatCount == null || seatCount <= 0) {
-                continue;
+            sw.stop();
+
+            sw.start("3. 解析车厢结构JSON");
+            Map<String, List<Integer>> seatTypeToCarriages = JSON.parseObject(
+                    carriageJson,
+                    new TypeReference<Map<String, List<Integer>>>() {}
+            );
+            List<Integer> carriageIndexList = (seatTypeToCarriages == null) ? null : seatTypeToCarriages.get(seatType);
+            if (CollUtil.isEmpty(carriageIndexList)) {
+                return null;
             }
-            if (offset < seatCount) {
-                return new ChosenSeat(carriageIndex, offset + 1);
+            sw.stop();
+
+            sw.start("4. 循环查询车厢座位数并映射");
+            String carriageSeatCountKey = REDIS_KEY_CARRIAGE_SEAT_COUNT_PRE + "-" + dateStr + "-" + trainCode;
+            int offset = seatBitPos;
+
+            for (Integer carriageIndex : carriageIndexList) {
+                if (carriageIndex == null) {
+                    continue;
+                }
+
+                Object seatCountObj = redisTemplate.opsForHash().get(carriageSeatCountKey, String.valueOf(carriageIndex));
+                Integer seatCount = seatCountObj == null ? null : Integer.valueOf(seatCountObj.toString());
+
+                if (seatCount == null || seatCount <= 0) {
+                    continue;
+                }
+
+                if (offset < seatCount) {
+                    return new ChosenSeat(carriageIndex, offset + 1);
+                }
+
+                offset -= seatCount;
             }
-            offset -= seatCount;
+            sw.stop();
+
+            return null;
+
+        } finally {
+            if (sw.isRunning()) {
+                sw.stop();
+            }
+
+            LOG.info("座位映射耗时统计 trainCode={} seatType={} seatBitPos={}\n{}",
+                    trainCode,
+                    seatType,
+                    seatBitPos,
+                    sw.prettyPrint()
+            );
         }
-        return null;
     }
 
     /**
