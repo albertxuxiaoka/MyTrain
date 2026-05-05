@@ -20,7 +20,7 @@ public class ConfirmOrderRabbitConsumer {
     @RabbitListener(queues = RabbitMqConfig.CONFIRM_ORDER_QUEUE)
     public void consume(ConfirmOrderMQDto dto) {
         LOG.info("RabbitMQ消费确认订单：{}", dto);
-        afterConfirmOrderService.afterDoConfirmAsync(dto);
+//        afterConfirmOrderService.afterDoConfirmAsync(dto);
     }
 }
 

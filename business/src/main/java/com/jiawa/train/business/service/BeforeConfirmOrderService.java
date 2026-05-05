@@ -101,6 +101,7 @@ public class BeforeConfirmOrderService {
             }
         }
         if (startIndex == null || endIndex == null) {
+            skTokenService.returnSkToken(req.getDate(), req.getTrainCode());
             throw new BusinessException(BusinessExceptionEnum.CONFIRM_ORDER_EXCEPTION);
         }
 
@@ -112,6 +113,7 @@ public class BeforeConfirmOrderService {
                 endIndex
         );
         if (chosenSeat == null) {
+            skTokenService.returnSkToken(req.getDate(), req.getTrainCode());
             throw new BusinessException(BusinessExceptionEnum.CONFIRM_ORDER_TICKET_COUNT_ERROR);
         }
 
@@ -146,7 +148,7 @@ public class BeforeConfirmOrderService {
                 com.jiawa.train.business.config.RabbitMqConfig.CONFIRM_ORDER_ROUTING_KEY,
                 confirmOrderMQDto
         );
-
+        skTokenService.returnSkToken(req.getDate(), req.getTrainCode());
 
         return confirmOrder.getId();
     }

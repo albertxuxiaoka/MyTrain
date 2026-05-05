@@ -23,8 +23,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -75,12 +77,19 @@ public class SkTokenService {
         long stationCount = dailyTrainStationService.countByTrainCode(date, trainCode);
         LOG.info("车次【{}】到站数：{}", trainCode, stationCount);
 
-        // 3/4需要根据实际卖票比例来定，一趟火车最多可以卖（seatCount * stationCount）张火车票
-        int count = (int) (seatCount * stationCount); // * 3/4);
+        int count = (int) (seatCount * stationCount);
         LOG.info("车次【{}】初始生成令牌数：{}", trainCode, count);
         skToken.setCount(count);
 
         skTokenMapper.insert(skToken);
+
+        // 生成令牌后，直接加载到缓存
+        String skTokenCountKey = RedisKeyPreEnum.SK_TOKEN_COUNT + "-" + DateUtil.formatDate(date) + "-" + trainCode;
+        redisTemplate.opsForValue().set(skTokenCountKey, String.valueOf(count));
+        LOG.info("生成令牌后加载到缓存，key：{}，count：{}", skTokenCountKey, count);
+
+        // 不要再调用 validSkToken，否则初始化时会扣掉一个令牌
+        // validSkToken(date, trainCode, 12306L);
     }
 
     public void save(SkTokenSaveReq req) {
@@ -129,70 +138,64 @@ public class SkTokenService {
     public boolean validSkToken(Date date, String trainCode, Long memberId) {
         LOG.info("会员【{}】获取日期【{}】车次【{}】的令牌开始", memberId, DateUtil.formatDate(date), trainCode);
 
-        // 需要去掉这段，否则发布生产后，体验多人排队功能时，会因拿不到锁而返回：等待5秒，加入20人时，只有第1次循环能拿到锁
-        // if (!env.equals("dev")) {
-        //     // 先获取令牌锁，再校验令牌余量，防止机器人抢票，lockKey就是令牌，用来表示【谁能做什么】的一个凭证
-        //     String lockKey = RedisKeyPreEnum.SK_TOKEN + "-" + DateUtil.formatDate(date) + "-" + trainCode + "-" + memberId;
-        //     Boolean setIfAbsent = redisTemplate.opsForValue().setIfAbsent(lockKey, lockKey, 5, TimeUnit.SECONDS);
-        //     if (Boolean.TRUE.equals(setIfAbsent)) {
-        //         LOG.info("恭喜，抢到令牌锁了！lockKey：{}", lockKey);
-        //     } else {
-        //         LOG.info("很遗憾，没抢到令牌锁！lockKey：{}", lockKey);
-        //         return false;
-        //     }
-        // }
-
         String skTokenCountKey = RedisKeyPreEnum.SK_TOKEN_COUNT + "-" + DateUtil.formatDate(date) + "-" + trainCode;
-        Object skTokenCount = redisTemplate.opsForValue().get(skTokenCountKey);
-        if (skTokenCount != null) {
-            LOG.info("缓存中有该车次令牌大闸的key：{}", skTokenCountKey);
-            Long count = redisTemplate.opsForValue().decrement(skTokenCountKey, 1);
-            if (count < 0L) {
-                LOG.error("获取令牌失败：{}", skTokenCountKey);
-                return false;
-            } else {
-                LOG.info("获取令牌后，令牌余数：{}", count);
-                redisTemplate.expire(skTokenCountKey, 60, TimeUnit.SECONDS);
-                // 每获取5个令牌更新一次数据库
-                if (count % 5 == 0) {
-                    skTokenMapperCust.decrease(date, trainCode, 5);
-                }
-                return true;
-            }
-        } else {
-            LOG.info("缓存中没有该车次令牌大闸的key：{}", skTokenCountKey);
-            // 检查是否还有令牌
-            SkTokenExample skTokenExample = new SkTokenExample();
-            skTokenExample.createCriteria().andDateEqualTo(date).andTrainCodeEqualTo(trainCode);
-            List<SkToken> tokenCountList = skTokenMapper.selectByExample(skTokenExample);
-            if (CollUtil.isEmpty(tokenCountList)) {
-                LOG.info("找不到日期【{}】车次【{}】的令牌记录", DateUtil.formatDate(date), trainCode);
-                return false;
-            }
 
-            SkToken skToken = tokenCountList.get(0);
-            if (skToken.getCount() <= 0) {
-                LOG.info("日期【{}】车次【{}】的令牌余量为0", DateUtil.formatDate(date), trainCode);
-                return false;
-            }
 
-            // 令牌还有余量
-            // 令牌余数-1
-            Integer count = skToken.getCount() - 1;
-            skToken.setCount(count);
-            LOG.info("将该车次令牌大闸放入缓存中，key: {}， count: {}", skTokenCountKey, count);
-            // 不需要更新数据库，只要放缓存即可
-            redisTemplate.opsForValue().set(skTokenCountKey, String.valueOf(count), 60, TimeUnit.SECONDS);
-            // skTokenMapper.updateByPrimaryKey(skToken);
-            return true;
+        LOG.info("缓存中有该车次令牌大闸的key：{}", skTokenCountKey);
+
+        Long count = atomicDecreaseToken(skTokenCountKey);
+        if (count == null || count < 0L) {
+            LOG.error("获取令牌失败，令牌不足：{}", skTokenCountKey);
+            return false;
         }
 
-        // 令牌约等于库存，令牌没有了，就不再卖票，不需要再进入购票主流程去判断库存，判断令牌肯定比判断库存效率高
-        // int updateCount = skTokenMapperCust.decrease(date, trainCode, 1);
-        // if (updateCount > 0) {
-        //     return true;
-        // } else {
-        //     return false;
-        // }
+        LOG.info("获取令牌成功，令牌余数：{}", count);
+
+        // 每获取5个令牌更新一次数据库
+        if (count % 5 == 0) {
+            //skTokenMapperCust.decrease(date, trainCode, 5);
+        }
+
+        return true;
+            }
+
+    /**
+     * 原子扣减令牌：只有 count > 0 时才扣减
+     * 返回扣减后的余量；返回 -1 表示无令牌
+     */
+    private Long atomicDecreaseToken(String key) {
+        String lua =
+                "local count = tonumber(redis.call('get', KEYS[1]) or '-1') " +
+                        "if count <= 0 then " +
+                        "  return -1 " +
+                        "end " +
+                        "count = redis.call('decrby', KEYS[1], 1) " +
+                        "return count";
+
+        DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+        script.setScriptText(lua);
+        script.setResultType(Long.class);
+
+        return redisTemplate.execute(script, Collections.singletonList(key));
+    }
+
+    /**
+     * 原子归还令牌
+     * 返回归还后的余量
+     */
+    public Long returnSkToken(Date date, String trainCode) {
+        String key = RedisKeyPreEnum.SK_TOKEN_COUNT + "-" + DateUtil.formatDate(date) + "-" + trainCode;
+
+        String lua =
+                "local count = redis.call('incrby', KEYS[1], 1) " +
+                        "return count";
+
+        DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+        script.setScriptText(lua);
+        script.setResultType(Long.class);
+
+        Long count = redisTemplate.execute(script, Collections.singletonList(key));
+        LOG.info("归还令牌成功，key：{}，归还后余量：{}", key, count);
+        return count;
     }
 }
